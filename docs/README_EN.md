@@ -4,7 +4,7 @@ An independent Windows desktop companion for **Albion Online Europe**.
 Available in **English and Russian**. Plan refining trips, compare crafting/trading
 opportunities, track orders and character progression, and price personal loadouts.
 
-[Download the Windows ZIP](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.2.0/AlbionCraft-0.2.0-windows-x64.zip), extract the whole folder and run
+[Download the Windows ZIP](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.2.1/AlbionCraft-0.2.1-windows-x64.zip), extract the whole folder and run
 `AlbionCraft.exe`. Python is not required. Use **Language / Язык → English** in the menu.
 Your language is saved; new installations follow the system language. Existing
 Russian profiles keep Russian until you change it. Item names use the game's

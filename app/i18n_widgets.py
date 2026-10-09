@@ -11,6 +11,7 @@ class _Presentation:
     def setPrefix(self,text):super().setPrefix(tr(text))
     def setSuffix(self,text):super().setSuffix(tr(text))
     def setSpecialValueText(self,text):super().setSpecialValueText(tr(text))
+    def setFormat(self,text):super().setFormat(tr(text))
 
 class _Text(_Presentation):
     def __init__(self,*args,**kwargs):

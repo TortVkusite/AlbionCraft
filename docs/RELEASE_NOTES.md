@@ -1,4 +1,4 @@
-# AlbionCraft 0.2.0 Beta — English & Russian
+# AlbionCraft 0.2.1 Beta — English & Russian
 
 English localization is now available alongside Russian. Choose
 **Language / Язык → English** in the menu; the choice is saved automatically.
@@ -8,6 +8,7 @@ English localization is now available alongside Russian. Choose
 - Search works with English and Russian names and game item IDs.
 - Existing Russian profiles keep their language until you change it.
 - Personal character, container and preset names keep their original spelling.
+- Localized maximum-level indicators.
 - English quick start and a localized demo screenshot.
 
 Extract the entire Windows ZIP into a new folder and run `AlbionCraft.exe`.

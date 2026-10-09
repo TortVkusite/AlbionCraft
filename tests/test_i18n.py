@@ -75,6 +75,11 @@ class LocalizationTests(unittest.TestCase):
             client.terminate.assert_called_once()
     def test_dynamic_order_time_units(self):
         self.assertEqual(tr('29 д 13 ч'),'29 d 13 h')
+    def test_progress_bar_max_level_is_localized(self):
+        from app.i18n_widgets import QApplication,QProgressBar
+        app=QApplication.instance() or QApplication([])
+        bar=QProgressBar();bar.setFormat('Максимальный уровень')
+        self.assertEqual(bar.format(),'Maximum level')
     def test_russian_passthrough(self):
         set_language('ru');self.assertEqual(tr('Мои заказы'),'Мои заказы')
     def test_translation_catalog_has_no_missing_values(self):
