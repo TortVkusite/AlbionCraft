@@ -1,0 +1,48 @@
+name: Windows build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache-dependency-path: vendor/albion-data-client/go.sum
+      - run: python -m pip install -r requirements-build.txt
+      - run: python -m unittest discover -s tests -v
+      - name: Build local capture client
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force tools/albion-data-client, build | Out-Null
+          $env:CGO_ENABLED='0'
+          Push-Location vendor/albion-data-client
+          go build -trimpath -o ../../build/albioncraft-data-client.exe albioncraft-local.go
+          if ($LASTEXITCODE -ne 0) { throw 'Capture build failed' }
+          go list -deps -f '{{with .Module}}{{.Dir}}{{end}}' albioncraft-local.go | Set-Content ../../build/go-modules.txt
+          Pop-Location
+      - run: python scripts/collect_licenses.py
+      - run: python scripts/prepare_brand.py
+      - run: python -m PyInstaller AlbionCraft.spec --noconfirm
+      - name: Verify frozen executable
+        shell: pwsh
+        run: |
+          $report=Join-Path $PWD 'build/frozen-check.json'
+          $quotedReport='"'+$report+'"'
+          $p=Start-Process -FilePath dist/AlbionCraft/AlbionCraft.exe -ArgumentList '--smoke-test', $quotedReport -WindowStyle Hidden -Wait -PassThru
+          Get-Content $report
+          if ($p.ExitCode -ne 0) { throw 'Frozen smoke check failed' }
+      - run: python scripts/package_release.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlbionCraft-release
+          path: |
+            release/*.zip
+            release/SHA256SUMS.txt

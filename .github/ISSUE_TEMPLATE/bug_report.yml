@@ -1,0 +1,23 @@
+name: Ошибка
+description: Сбой, неверный расчёт или неудобство интерфейса
+body:
+  - type: markdown
+    attributes:
+      value: Не прикладывай настройки, базы, полный сетевой захват или токены. Обезличь скриншоты и журналы.
+  - type: input
+    id: version
+    attributes:
+      label: Версия AlbionCraft и Windows
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как повторить
+      description: Действия, ожидание и фактический результат; для формулы — входные числа.
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Обезличенная ошибка / скриншот

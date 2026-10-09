@@ -1,0 +1,36 @@
+# Personal data, local observations and credentials
+settings.json
+*.sqlite*
+*.db*
+*.log*
+builds_grind.json
+icons/
+installers/
+logs/
+*.part
+.env*
+!.env.example
+# Environments and build outputs
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+build/
+dist/
+release/
+release_licenses/
+tools/dev/
+tools/albion-data-client/*.exe
+tools/albion-data-client/LOCAL_BUILD.json
+# Experiments may contain real player data or game screenshots.
+research/*
+!research/items.json
+!research/names.json
+!research/achievements.json
+!research/full_gamedata.json
+!research/README.md
+!research/check_trip_qol_ui.py
+!research/check_trip_ui.py
+.pytest_cache/
+.coverage
+Thumbs.db

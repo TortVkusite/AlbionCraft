@@ -1,0 +1,1 @@
+Qt / PySide6 6.11.2. LGPL-3.0-only selected for the dynamically linked Qt components used by AlbionCraft. See THIRD_PARTY_NOTICES.md for source downloads and build instructions. Third-party notices are from the official Qt documentation, accessed 2026-10-09. License texts are from the v6.11.2 source tag.

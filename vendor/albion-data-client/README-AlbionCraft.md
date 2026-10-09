@@ -1,0 +1,1 @@
+Local capture fork of https://github.com/ao-data/albiondata-client. MIT; original LICENSE retained. Build only albioncraft-local.go as described in ../../docs/BUILDING.md. The original desktop entry point is not used. No game requests, self-updates or external uploads in this entry point. Original upstream source obtained in October 2026.

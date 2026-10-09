@@ -1,0 +1,10 @@
+name: Предложение
+description: Идея для AlbionCraft
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Какую задачу хочешь решить?
+      description: Опиши конкретную ситуацию и желаемый результат.
+    validations:
+      required: true
