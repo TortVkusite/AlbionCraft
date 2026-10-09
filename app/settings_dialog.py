@@ -1,5 +1,6 @@
+from .i18n import tr
 import json
-from PySide6.QtWidgets import (QDialog,QVBoxLayout,QLabel,QTableWidget,QTableWidgetItem,
+from .i18n_widgets import (QDialog,QVBoxLayout,QLabel,QTableWidget,QTableWidgetItem,
     QDialogButtonBox,QFormLayout,QLineEdit,QComboBox,QSpinBox,QMessageBox)
 from .models import CITIES
 from .calculator import DEMAND_SCALE
@@ -39,8 +40,8 @@ class SettingsDialog(QDialog):
             form.addRow(label,field); self.fields[k]=field
         explanation(layout,DEMAND_SCALE+'\nНеполная история не доказывает отсутствие продаж.','Шкала объёма продаж')
         buttons=QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel)
-        buttons.button(QDialogButtonBox.Save).setText('Сохранить')
-        buttons.button(QDialogButtonBox.Cancel).setText('Отмена')
+        buttons.button(QDialogButtonBox.Save).setText(tr('Сохранить'))
+        buttons.button(QDialogButtonBox.Cancel).setText(tr('Отмена'))
         buttons.accepted.connect(self.save); buttons.rejected.connect(self.reject); layout.addWidget(buttons)
         self.recipe.currentIndexChanged.connect(self.change); self.change()
         readable_table(self.grid);self.grid.horizontalHeader().setStretchLastSection(True)

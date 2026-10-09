@@ -26,6 +26,11 @@ def check(output):
             recipes=load_catalog(data_root());game=GameProgression(data_root())
             assert len(recipes)>100 and game.costs('COMBAT_SWORDS_SWORD')[0]>0
             assert 'Слиток' in item_name('T2_METALBAR')
+            from app.i18n import set_language,tr
+            set_language('en')
+            assert item_name('T2_METALBAR',False)=='Copper Bar'
+            assert tr('Мои заказы')=='My orders'
+            result['localization']='ru/en ok'
             result['catalog']=len(recipes)
             app=QApplication.instance() or QApplication([])
             from PySide6.QtGui import QFont,QFontDatabase
@@ -38,6 +43,7 @@ def check(output):
             Window.stream_changed=lambda *args,**kwargs:None
             Window.local_changed=lambda *args,**kwargs:None
             window=Window();window.load_timer.stop();window.stream_timer.stop()
+            assert window.table.horizontalHeaderItem(0).text()=='Item'
             assert not (data_root()/'settings.json').exists()
             window.show();app.processEvents();assert window.grab().save(str(output.with_suffix('.png')))
             result['window']='ok'
@@ -58,6 +64,7 @@ def check(output):
             reader=quantity_reader();reader(np.full((32,96,3),255,dtype=np.uint8))
             result['ocr']='ok'
             window.close();app.processEvents()
+            set_language('ru')
             result['assets']='ok' if (resource_root()/'app/assets/albioncraft.svg').is_file() else 'missing'
             assert result['assets']=='ok'
     except Exception:

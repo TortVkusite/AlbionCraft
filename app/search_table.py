@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence
-from PySide6.QtWidgets import QApplication,QTableWidget
+from .i18n_widgets import QApplication,QTableWidget
 
 SEARCH_NAME_ROLE=Qt.UserRole+2
 

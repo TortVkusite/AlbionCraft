@@ -1,9 +1,9 @@
 <p align="center"><img src="docs/banner.svg" alt="AlbionCraft — ходки, прибыль и рынок Albion Online Europe" width="100%"></p>
 
-<p align="center"><b>Помощник для рынка, переработки и прогресса в Albion Online</b><br>Windows x64 · Europe · Русский интерфейс · Первая публичная Beta</p>
+<p align="center"><b>Помощник для рынка, переработки и прогресса в Albion Online</b><br>Windows x64 · Europe · Русский / English · Beta</p>
 
 <p align="center">
-<a href="https://github.com/TortVkusite/AlbionCraft/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/release-0.1.0%20beta-blue" alt="0.1.0 beta"></a>
+<a href="https://github.com/TortVkusite/AlbionCraft/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-0.2.0%20beta-blue" alt="0.2.0 beta"></a>
 <a href="https://github.com/TortVkusite/AlbionCraft/actions/workflows/test.yml"><img src="https://github.com/TortVkusite/AlbionCraft/actions/workflows/test.yml/badge.svg" alt="Tests"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT"></a>
 </p>
@@ -12,7 +12,7 @@ AlbionCraft помогает выбрать выгодные предметы и
 сколько привезти, что переработать и где продать. Сравнивай прибыль в серебре
 или ROI, учитывай фокус, тариф станции, уже купленные партии и запасы на базе.
 
-**Начать:** [скачай Windows-сборку](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.1.0/AlbionCraft-0.1.0-windows-x64.zip), распакуй её целиком и
+**Начать:** [скачай Windows-сборку](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.2.0/AlbionCraft-0.2.0-windows-x64.zip), распакуй её целиком и
 запусти `AlbionCraft.exe`. Python устанавливать не нужно.
 [Все релизы](https://github.com/TortVkusite/AlbionCraft/releases) ·
 [Первые шаги](docs/QUICK_START.md) · [Подробная инструкция](USER_GUIDE.md) ·
@@ -31,6 +31,14 @@ AlbionCraft помогает выбрать выгодные предметы и
 | Персонализация | Сохранение фильтров, исключения, рекомендации и сценарии ходок |
 
 <p align="center"><img src="docs/screenshots/trip.png" alt="Калькулятор ходки на демонстрационных ценах" width="100%"><br><sub>Пример расчёта на демонстрационных ценах; это не текущие котировки.</sub></p>
+
+## Язык интерфейса
+
+В меню **Language / Язык** выбери русский или английский. Выбор сохраняется.
+Переведены окна, подсказки, расчёты, заказы и дерево развития; названия предметов
+берутся из локализации игры. Поиск принимает названия на обоих языках.
+Для новой установки язык выбирается по системе; прежние профили сохраняют русский.
+[English quick start](docs/QUICK_START_EN.md).
 
 ## Как устроены данные
 

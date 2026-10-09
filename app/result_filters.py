@@ -1,5 +1,5 @@
 from decimal import Decimal,InvalidOperation
-from PySide6.QtWidgets import QDialog,QVBoxLayout,QFormLayout,QLineEdit,QComboBox,QDialogButtonBox,QLabel,QMessageBox
+from .i18n_widgets import QDialog,QVBoxLayout,QFormLayout,QLineEdit,QComboBox,QDialogButtonBox,QLabel,QMessageBox
 
 def reliability(row):
     problems=[]

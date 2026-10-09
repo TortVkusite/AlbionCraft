@@ -1,6 +1,6 @@
 from decimal import Decimal as D
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog,QVBoxLayout,QHBoxLayout,QFormLayout,QLabel,QComboBox,QTableWidget,QTableWidgetItem,QLineEdit,QPushButton,QCheckBox,QInputDialog
+from .i18n_widgets import QDialog,QVBoxLayout,QHBoxLayout,QFormLayout,QLabel,QComboBox,QTableWidget,QTableWidgetItem,QLineEdit,QPushButton,QCheckBox,QInputDialog
 from .trip_ledger import TripLedger,actual_summary
 from .item_names import item_name
 from .formatting import money

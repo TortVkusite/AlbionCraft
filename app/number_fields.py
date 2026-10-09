@@ -1,6 +1,6 @@
 """Readable arrows and no accidental number changes while scrolling."""
 from pathlib import Path
-from PySide6.QtWidgets import QSpinBox,QDoubleSpinBox
+from .i18n_widgets import QSpinBox,QDoubleSpinBox
 
 def style(field):
     assets=(Path(__file__).parent/'assets').as_posix()

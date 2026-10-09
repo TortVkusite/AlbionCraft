@@ -5,15 +5,26 @@ from functools import lru_cache
 from pathlib import Path
 
 
-@lru_cache(maxsize=1)
-def names():
+@lru_cache(maxsize=2)
+def localized_names(locale):
     path=Path(__file__).resolve().parents[1]/'research/names.json'
     try:
         entries=json.loads(path.read_text(encoding='utf-8-sig'))
     except (OSError,ValueError):
         return {}
-    return {e['UniqueName']:(e.get('LocalizedNames') or {}).get('RU-RU')
+    return {e['UniqueName']:(e.get('LocalizedNames') or {}).get(locale)
         or (e.get('LocalizedNames') or {}).get('EN-US') or e['UniqueName'] for e in entries}
+
+def names():
+    from .i18n import game_locale
+    return localized_names(game_locale())
+
+def matches_item(uid,text,label=''):
+    """Keep saved search queries useful after changing the interface language."""
+    needle=text.casefold();base=uid.split('@')[0]
+    return any(needle in value.casefold() for value in (uid,label,
+        localized_names('RU-RU').get(uid,localized_names('RU-RU').get(base,'')),
+        localized_names('EN-US').get(uid,localized_names('EN-US').get(base,''))))
 
 
 def item_name(uid,with_level=True):

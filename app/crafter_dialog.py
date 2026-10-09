@@ -1,7 +1,7 @@
 from pathlib import Path
 from functools import lru_cache
 from PySide6.QtCore import Qt,QTimer
-from PySide6.QtWidgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,QLineEdit,QPushButton,
+from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,QLineEdit,QPushButton,
     QSpinBox,QDoubleSpinBox,QFormLayout,QGroupBox,QGridLayout,QProgressBar,QCheckBox,QTabWidget,
     QWidget,QTableWidget,QTableWidgetItem,QMessageBox,QAbstractItemView)
 from .progression import GameProgression,PlayerStore,advance
@@ -25,10 +25,10 @@ class CrafterDialog(QDialog):
             'QProgressBar::chunk{background:#c49a49;}'
             'QTableWidget{background:#eadbbd;gridline-color:#b9a27d;}QHeaderView::section{background:#c6ad80;padding:7px;}')
         layout=QVBoxLayout(self);top=FlowLayout();layout.addLayout(top)
-        top.addWidget(QLabel('Персонаж:'));self.player=QLineEdit('Мой персонаж');top.addWidget(self.player)
+        top.addWidget(QLabel('Персонаж:'));self.player=QLineEdit(getattr(parent,'settings',{}).get('progress_player','Мой персонаж'));top.addWidget(self.player)
         load=QPushButton('Загрузить профиль');top.addWidget(load);load.clicked.connect(self.load_profile)
         self.tabs=QTabWidget();layout.addWidget(self.tabs)
-        from PySide6.QtWidgets import QScrollArea
+        from .i18n_widgets import QScrollArea
         calc=QWidget();body=QVBoxLayout(calc);body.setAlignment(Qt.AlignTop)
         calc_scroll=QScrollArea();calc_scroll.setWidgetResizable(True);calc_scroll.setWidget(calc);self.tabs.addTab(calc_scroll,'Прогресс / партия')
         selectors=QHBoxLayout();body.addLayout(selectors)

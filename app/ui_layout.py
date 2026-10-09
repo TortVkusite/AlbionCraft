@@ -1,6 +1,6 @@
 """Responsive control rows and consistent readable tables."""
 from PySide6.QtCore import QRect,QSize,Qt
-from PySide6.QtWidgets import QLayout,QLabel,QSizePolicy,QComboBox,QScrollArea
+from .i18n_widgets import QLayout,QLabel,QSizePolicy,QComboBox,QScrollArea
 
 
 class FlowLayout(QLayout):
@@ -50,7 +50,7 @@ class FlowLayout(QLayout):
 
 def explanation(layout,text,title='Как это работает'):
     """Keep full guidance accessible without consuming the whole window."""
-    from PySide6.QtWidgets import QPushButton
+    from .i18n_widgets import QPushButton
     button=QPushButton('+ '+title);button.setToolTip(text)
     label=QLabel(text);label.setWordWrap(True);label.setTextInteractionFlags(Qt.TextSelectableByMouse)
     panel=QScrollArea();panel.setWidgetResizable(True);panel.setWidget(label)

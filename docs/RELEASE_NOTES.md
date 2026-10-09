@@ -1,20 +1,33 @@
-# AlbionCraft 0.1.0 — первая публичная Beta
+# AlbionCraft 0.2.0 Beta — English & Russian
 
-Помощник рынка Albion Online Europe: цены, крафт, переработка, перепродажа,
-планирование ходки и прогресс персонажа в одном Windows-приложении.
+English localization is now available alongside Russian. Choose
+**Language / Язык → English** in the menu; the choice is saved automatically.
 
-В релиз входят готовая сборка x64 без установки Python и исходный код под MIT.
-Есть подбор партии по прибыли или ROI, ресурсы на базе, фиксированные покупки,
-фокус, цепочки материалов, повторные возвраты, наблюдаемые объёмы рынка,
-оценка срока продажи, сценарии, план/факт, собственные заказы и личные билды.
+- Localized windows, tooltips, results, orders, bank reader and Destiny Board.
+- Official English item names, including names copied for in-game search.
+- Search works with English and Russian names and game item IDs.
+- Existing Russian profiles keep their language until you change it.
+- Personal character, container and preset names keep their original spelling.
+- English quick start and a localized demo screenshot.
 
-Панели переносятся при уменьшении окна, длинные инструкции раскрываются отдельно.
-В ходке настройки прокручиваются, а кнопки расчёта остаются доступны.
+Extract the entire Windows ZIP into a new folder and run `AlbionCraft.exe`.
+Python is not required. Existing Windows profiles are reused from
+`%LOCALAPPDATA%\AlbionCraft`. Npcap is required only for optional local capture.
 
-Распакуйте Windows ZIP целиком и запустите `AlbionCraft.exe`.
-Личные данные сохраняются в `%LOCALAPPDATA%\AlbionCraft`.
-Для необязательного игрового клиента нужен отдельно устанавливаемый Npcap.
+Both languages were checked across 22 interface states at 1280 × 700, with
+smaller dialogs also checked at 1000 × 700. The test suite includes language
+switching, profile preservation, dynamic translations and bilingual search.
 
-Цены, история и объёмы могут быть неполными. Прибыль и сроки не гарантированы.
-Интерфейс — русский, сервер — Europe. Другие платформы и серверы пока не проверены.
-Сборка не подписана цифровой подписью; Windows может показать предупреждение об издателе.
+This remains a beta: quotes and observed volumes may be incomplete or outdated.
+Profit and sale times are estimates. The Windows binary is unsigned.
+
+---
+
+Добавлены английский и русский языки: **Language / Язык** в меню.
+Переведены окна, подсказки, расчёты, заказы, чтение банка и дерево развития.
+Названия предметов берутся из локализации игры, поиск работает на обоих языках.
+Выбор языка сохраняется; личные данные и прежние профили совместимы.
+
+Для обновления распакуй новый Windows ZIP целиком в отдельную папку.
+Готовая сборка использует прежний профиль в `%LOCALAPPDATA%\AlbionCraft`.
+Сервер — Europe. Другие платформы и серверы пока не проверены.

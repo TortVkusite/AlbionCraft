@@ -2,7 +2,7 @@ import json,time,sqlite3
 from pathlib import Path
 from PySide6.QtCore import Qt,QThread,Signal,QTimer,QUrl
 from PySide6.QtGui import QDesktopServices,QColor
-from PySide6.QtWidgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,QPushButton,
+from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,QPushButton,
     QSpinBox,QCheckBox,QGridLayout,QTableWidget,QTableWidgetItem,QAbstractItemView,QSplitter,QWidget)
 from .builds import ACTIVITIES,SLOTS,SOURCE,fetch_grind,evaluate,variant,build_variants
 from .models import CITIES
@@ -179,7 +179,7 @@ class BuildsDialog(QDialog):
             Details(self.owner,row,p['quality'],self.owner.settings).exec()
     def search_common(self,n,column):
         if n<len(self.common_ids):
-            from PySide6.QtWidgets import QApplication
+            from .i18n_widgets import QApplication
             name=item_name(self.common_ids[n],False)
             if not self.common_concrete:name=name.split(' (')[0]
             QApplication.clipboard().setText(name);self.status.setText('Название скопировано для поиска в игре.')

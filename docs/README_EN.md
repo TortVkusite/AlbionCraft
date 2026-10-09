@@ -1,11 +1,20 @@
 # AlbionCraft
 
 An independent Windows desktop companion for **Albion Online Europe**.
-The interface is currently in Russian. Plan refining trips, compare crafting/trading
+Available in **English and Russian**. Plan refining trips, compare crafting/trading
 opportunities, track orders and character progression, and price personal loadouts.
 
-[Download the Windows ZIP](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.1.0/AlbionCraft-0.1.0-windows-x64.zip), extract the whole folder and run
-`AlbionCraft.exe`. Python is not required. Source installation requires Python 3.14 x64:
+[Download the Windows ZIP](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.2.0/AlbionCraft-0.2.0-windows-x64.zip), extract the whole folder and run
+`AlbionCraft.exe`. Python is not required. Use **Language / Язык → English** in the menu.
+Your language is saved; new installations follow the system language. Existing
+Russian profiles keep Russian until you change it. Item names use the game's
+official English localization, and search accepts English, Russian and item IDs.
+
+[Quick start](QUICK_START_EN.md) · [Русский](../README.md) · [Releases](https://github.com/TortVkusite/AlbionCraft/releases)
+
+![Haul planner with synthetic demo prices](screenshots/trip-en.png)
+
+Source installation requires Python 3.14 x64:
 
 ```powershell
 py -3.14 -m venv .venv

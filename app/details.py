@@ -1,5 +1,5 @@
 from .calculator import demand_tip
-from PySide6.QtWidgets import QDialog,QVBoxLayout,QLabel,QTableWidget,QTableWidgetItem,QSpinBox,QFormLayout,QAbstractItemView,QPushButton
+from .i18n_widgets import QDialog,QVBoxLayout,QLabel,QTableWidget,QTableWidgetItem,QSpinBox,QFormLayout,QAbstractItemView,QPushButton
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 from .formatting import money,roi,timestamp
@@ -10,7 +10,7 @@ from .filter_dialog import QUALITY_NAMES
 class Details(QDialog):
     def __init__(self,parent,row,quality,settings):
         super().__init__(parent); self.setWindowTitle('Подробный расчёт — '+row['recipe'].name); self.resize(1100,800)
-        from PySide6.QtWidgets import QWidget,QScrollArea
+        from .i18n_widgets import QWidget,QScrollArea
         from .ui_layout import fit_window,readable_table
         outer=QVBoxLayout(self);scroll=QScrollArea();scroll.setWidgetResizable(True);outer.addWidget(scroll)
         content=QWidget();layout=QVBoxLayout(content);scroll.setWidget(content);r=row['recipe']

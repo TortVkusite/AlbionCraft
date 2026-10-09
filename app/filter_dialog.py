@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QGroupBox,QCheckBox,
+from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QGroupBox,QCheckBox,
     QPushButton,QDialogButtonBox,QMessageBox)
 
 QUALITY_NAMES=['Обычное','Хорошее','Выдающееся','Отличное','Шедевр']

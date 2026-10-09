@@ -2,21 +2,22 @@ import math
 from pathlib import Path
 from PySide6.QtCore import Qt,QRectF,QPointF,QTimer
 from PySide6.QtGui import QColor,QPen,QBrush,QPainter,QFont,QImage,QPixmap
-from PySide6.QtWidgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,QPushButton,QComboBox,
+from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,QPushButton,QComboBox,
     QGraphicsView,QGraphicsScene,QGraphicsObject,QSplitter,QWidget,QScrollArea,QGroupBox,
     QFormLayout,QSpinBox,QDoubleSpinBox,QProgressBar,QMessageBox)
 from .crafter_dialog import progression,CrafterDialog
 from .progression import PlayerStore,advance
 from .destiny import build_branches,node_name,MODES,GROUP_COLORS
 from .formatting import money
+from .i18n import tr
 
 
 class BoardNode(QGraphicsObject):
     def __init__(self,board,label,uid,active,level,experience,callback,radius=44,group=""):
 
-        super().__init__();self.board=board;self.label=label;self.uid=uid;self.active=active
-        self.level=level;self.experience=experience;self.callback=callback;self.radius=radius;self.group=group
-        self.setCursor(Qt.PointingHandCursor);self.setToolTip(label+'\n'+experience)
+        super().__init__();self.board=board;self.label=tr(label);self.uid=uid;self.active=active
+        self.level=level;self.experience=tr(experience);self.callback=callback;self.radius=radius;self.group=group
+        self.setCursor(Qt.PointingHandCursor);self.setToolTip(tr(label+'\n'+experience))
     def boundingRect(self):return QRectF(-94,-self.radius-8,188,self.radius*2+94)
     def paint(self,painter,option,widget=None):
         r=self.radius;painter.setRenderHint(QPainter.Antialiasing)

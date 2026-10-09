@@ -5,6 +5,7 @@ from decimal import Decimal as D
 from pathlib import Path
 from .models import Ingredient, Recipe
 from .rules import rules
+from .i18n import game_locale
 
 def many(value):
     return value if isinstance(value, list) else [value] if isinstance(value, dict) else []
@@ -24,7 +25,7 @@ def load_catalog(root: Path):
     if names_file.exists():
         for entry in json.loads(names_file.read_text(encoding='utf-8-sig')):
             loc = entry.get('LocalizedNames') or {}
-            names[entry['UniqueName']] = loc.get('RU-RU') or loc.get('EN-US') or entry['UniqueName']
+            names[entry['UniqueName']] = loc.get(game_locale()) or loc.get('EN-US') or entry['UniqueName']
     recipes = []
     nutrition_by_output={}
     for group in ('weapon', 'equipmentitem', 'transformationweapon', 'simpleitem', 'consumableitem', 'farmableitem'):

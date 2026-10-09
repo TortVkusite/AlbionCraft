@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt,QTimer
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QTabWidget,QTableWidget,QTableWidgetItem,
+from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QTabWidget,QTableWidget,QTableWidgetItem,
     QAbstractItemView,QPushButton,QApplication)
 from .recommendations import build_recommendations
 from .item_names import item_name,recipe_variant

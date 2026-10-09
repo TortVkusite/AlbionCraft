@@ -1,6 +1,6 @@
 from pathlib import Path
 from PySide6.QtCore import Qt,QTimer
-from PySide6.QtWidgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,QSpinBox,QCheckBox,QPushButton,QTableWidget,QTableWidgetItem,QAbstractItemView,QLineEdit,QApplication)
+from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,QSpinBox,QCheckBox,QPushButton,QTableWidget,QTableWidgetItem,QAbstractItemView,QLineEdit,QApplication)
 from .ui_layout import FlowLayout,explanation,compact_combos,fit_window
 from .crafter_dialog import progression
 from .progression import PlayerStore

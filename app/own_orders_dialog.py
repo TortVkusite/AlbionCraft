@@ -1,6 +1,7 @@
+from .i18n import tr
 from datetime import datetime,timezone,timedelta
 from PySide6.QtCore import Qt,QTimer,QDateTime
-from PySide6.QtWidgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QTableWidget,QTableWidgetItem,
+from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QTableWidget,QTableWidgetItem,
     QComboBox,QSpinBox,QLineEdit,QPushButton,QDialogButtonBox,QMessageBox,QDateTimeEdit)
 from .models import CITIES
 from .own_orders import OwnOrderStore,order_totals,amount
@@ -47,7 +48,7 @@ class OwnOrdersDialog(QDialog):
         self.summary=QLabel();self.summary.setWordWrap(True);self.summary.setStyleSheet('font-size:16px;');layout.addWidget(self.summary)
         disclaimer=QLabel('Итоги относятся к выбранным фильтрам и полученным заказам. Комиссия размещения уже уплачена. Завершённые и отменённые заказы не входят в текущие суммы. Себестоимость, если была задана раньше, сохраняется.');disclaimer.setWordWrap(True);layout.addWidget(disclaimer)
         buttons=QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel);layout.addWidget(buttons);buttons.accepted.connect(self.save);buttons.rejected.connect(self.reject)
-        buttons.button(QDialogButtonBox.Save).setText('Сохранить');buttons.button(QDialogButtonBox.Cancel).setText('Отмена')
+        buttons.button(QDialogButtonBox.Save).setText(tr('Сохранить'));buttons.button(QDialogButtonBox.Cancel).setText(tr('Отмена'))
         self.reloading=True
         for order in self.original:self.add_order(order)
         self.reloading=False

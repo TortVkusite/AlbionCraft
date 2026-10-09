@@ -1,5 +1,6 @@
+from .i18n import tr
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,QListWidget,
+from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,QListWidget,
     QListWidgetItem,QTabWidget,QWidget,QFormLayout,QSpinBox,QDoubleSpinBox,QDialogButtonBox,QPushButton,QMessageBox)
 from .preferences import exclusion_key
 from .ui_layout import fit_window
@@ -28,7 +29,7 @@ class PersonalizationDialog(QDialog):
         self.high=QDoubleSpinBox();self.high.setRange(0,100000);self.high.setSuffix(' %');self.high.setValue(float(prefs.get('roi_max',200)));form.addRow('Кандидаты: ROI до:',self.high)
         note=QLabel('Рекомендации используют загруженные данные для выбранных фильтров. Неизвестные расходы и давность цен отмечаются. Опыт и дерево прокачки будут доработаны отдельно.');note.setWordWrap(True);form.addRow(note)
         buttons=QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel);layout.addWidget(buttons)
-        buttons.button(QDialogButtonBox.Save).setText('Сохранить');buttons.button(QDialogButtonBox.Cancel).setText('Отмена')
+        buttons.button(QDialogButtonBox.Save).setText(tr('Сохранить'));buttons.button(QDialogButtonBox.Cancel).setText(tr('Отмена'))
         buttons.accepted.connect(self.save);buttons.rejected.connect(self.reject)
         fit_window(self)
     def filter(self,text):

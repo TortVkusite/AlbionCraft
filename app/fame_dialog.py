@@ -1,7 +1,7 @@
 import json,subprocess,sys,os,tempfile
 from pathlib import Path
 from PySide6.QtCore import QThread,Signal
-from PySide6.QtWidgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,QLineEdit,QPushButton,QDoubleSpinBox,QCheckBox,QTableWidget,QTableWidgetItem,QAbstractItemView,QMessageBox)
+from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,QLineEdit,QPushButton,QDoubleSpinBox,QCheckBox,QTableWidget,QTableWidgetItem,QAbstractItemView,QMessageBox)
 from .ui_layout import FlowLayout,explanation,readable_table,compact_combos,fit_window
 from .crafter_dialog import progression
 from .destiny import build_branches,node_name

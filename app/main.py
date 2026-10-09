@@ -4,8 +4,8 @@ import sys
 from pathlib import Path
 from decimal import Decimal
 from PySide6.QtCore import Qt,QSize,QTimer,QSignalBlocker
-from PySide6.QtGui import QFont,QFontDatabase,QColor
-from PySide6.QtWidgets import (QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,
+from PySide6.QtGui import QFont,QFontDatabase,QColor,QActionGroup
+from .i18n_widgets import (QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,
     QLabel,QComboBox,QPushButton,QSpinBox,QTableWidget,QTableWidgetItem,QLineEdit,
     QMessageBox,QAbstractItemView,QCheckBox,QMenu)
 from .catalog import load_catalog
@@ -25,13 +25,14 @@ from .cache import Cache
 from .filter_dialog import FilterSelection
 from .result_filters import BoundsDialog,in_bounds,reliability
 from .local_market import LocalReceiver,LocalStore,merge_local
-from .item_names import item_name,recipe_variant,has_known_price
+from .item_names import item_name,recipe_variant,has_known_price,matches_item
 from .enchantment import comparison_price_ids,prefer_enchanted
 from .preferences import save_settings,exclusion_key,is_excluded
 from .search_table import SearchTable,SEARCH_NAME_ROLE
 from .calculator import DEMAND_LABELS,demand_text,demand_tip
 from .paths import data_root,resource_root
 from .version import __version__
+from .i18n import LANGUAGES,get_language,set_language,tr,default_language
 from .ui_layout import FlowLayout,explanation,fit_window,readable_table
 from .number_fields import NumberBox
 from PySide6.QtGui import QIcon
@@ -76,14 +77,22 @@ class Window(QMainWindow):
     def __init__(self):
         super().__init__();self.root=ROOT;self.setWindowTitle('AlbionCraft • Europe');self.resize(1540,900)
         self.setWindowIcon(QIcon(str(resource_root()/'app/assets/albioncraft.svg')))
-        help_menu=self.menuBar().addMenu('Помощь')
-        about=help_menu.addAction('О программе');about.triggered.connect(self.about)
-        folder=help_menu.addAction('Папка моих данных');folder.triggered.connect(self.open_data_folder)
-        self.recipes=load_catalog(ROOT);self.api=AlbionAPI();self.worker=None;self.last=None;self.visible=[];self.recommendation_rows=[]
         self.restoring_view=True
         self.settings_path=ROOT/'settings.json'
         try:self.settings=json.loads(self.settings_path.read_text(encoding='utf-8'))
         except (OSError,ValueError):self.settings={}
+        set_language(self.settings.get('language','ru' if self.settings else get_language()))
+        if not self.settings:self.settings['progress_player']=tr('Мой персонаж')
+        help_menu=self.menuBar().addMenu(tr('Помощь'))
+        about=help_menu.addAction(tr('О программе'));about.triggered.connect(self.about)
+        folder=help_menu.addAction(tr('Папка моих данных'));folder.triggered.connect(self.open_data_folder)
+        language_menu=self.menuBar().addMenu('Language / Язык')
+        language_group=QActionGroup(self);language_group.setExclusive(True);self.language_actions={}
+        for code,label in LANGUAGES.items():
+            action=language_menu.addAction(label);action.setCheckable(True);action.setChecked(code==get_language())
+            language_group.addAction(action);self.language_actions[code]=action
+            action.triggered.connect(lambda checked=False,code=code:self.change_language(code))
+        self.recipes=load_catalog(ROOT);self.api=AlbionAPI();self.worker=None;self.last=None;self.visible=[];self.recommendation_rows=[]
         self.settings.setdefault('auto_rules',True)
         self.icons=Icons(ROOT,self);self.icons.ready.connect(self.icon_ready)
         self.setStyleSheet('QMainWindow,QDialog,QWidget{background:#1d2127;color:#e0e5eb;font-family:"Segoe UI";font-size:13px;}'
@@ -474,7 +483,7 @@ class Window(QMainWindow):
             and self.family.currentData() in (None,r.family)
             and self.item.currentData() in (None,r.base_id.split('_',1)[1])
             and self.tier.currentData() in (None,r.tier) and r.enchantment in self.selected_enchantments()
-            and (not text or text in (r.name+' '+r.item_id).casefold())]
+            and (not text or matches_item(r.item_id,text,r.name))]
         if self.hide_excluded.isChecked():
             excluded=set(self.settings.get('excluded_items',[]));result=[r for r in result if exclusion_key(r) not in excluded]
         if self.activity.currentData()=='craft':return [r for r in result if r.path=='Прямой крафт']
@@ -625,6 +634,31 @@ class Window(QMainWindow):
         cell=self.table.item(n,0)
         if cell:
             row=self.visible[cell.data(Qt.UserRole+1)];Details(self,row,row.get('quality',self.quality.currentData()),self.settings).exec()
+    def change_language(self,code):
+        if code==get_language():return
+        tracker=getattr(self,'builds_dialog',None)
+        if (self.worker and self.worker.isRunning()) or (tracker and tracker.worker and tracker.worker.isRunning()):
+            self.language_actions[get_language()].setChecked(True)
+            QMessageBox.information(self,'Language / Язык',tr('Запрос выполняется; дождитесь завершения.'));return
+        self.settings['language']=code;self.persist_view()
+        app=QApplication.instance();app.setQuitOnLastWindowClosed(False)
+        client_process=self.client_process;self.client_process=None
+        for name in ('builds_dialog','recommendation_dialog'):
+            if dialog:=getattr(self,name,None):dialog.close()
+        self.close()
+        def reopen():
+            if self.isVisible():QTimer.singleShot(200,reopen);return
+            try:
+                set_language(code);window=Window();app._albioncraft_window=window;window.show()
+                window.client_process=client_process
+                if hasattr(self,'client_error_log'):window.client_error_log=self.client_error_log
+                self.deleteLater()
+            except Exception as exc:
+                if client_process and client_process.poll() is None:client_process.terminate()
+                logging.exception('Language switch');QMessageBox.critical(None,'AlbionCraft',str(exc));app.quit()
+            finally:app.setQuitOnLastWindowClosed(True)
+        QTimer.singleShot(0,reopen)
+
     def closeEvent(self,event):
         tracker=getattr(self,'builds_dialog',None)
         if tracker and tracker.worker and tracker.worker.isRunning():
@@ -649,11 +683,12 @@ def main():
     _crash_output=open(ROOT/'albioncraft-crash.log','a',encoding='utf-8')
     faulthandler.enable(file=_crash_output,all_threads=True)
     app=QApplication(sys.argv)
+    set_language(default_language())
     for file in ['segoeui.ttf','seguisym.ttf']:
         path=Path('C:/Windows/Fonts')/file
         if path.exists():QFontDatabase.addApplicationFont(str(path))
     app.setFont(QFont('Segoe UI',10))
-    try:window=Window();window.show()
+    try:window=Window();app._albioncraft_window=window;window.show()
     except Exception as exc:logging.exception('Startup');QMessageBox.critical(None,'AlbionCraft',str(exc));return 1
     return app.exec()
 

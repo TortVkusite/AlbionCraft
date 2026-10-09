@@ -4,7 +4,7 @@ from pathlib import Path
 from decimal import Decimal
 from PySide6.QtCore import Qt,QThread,Signal,QTimer,QRect
 from PySide6.QtGui import QImage,QPainter,QColor,QPen
-from PySide6.QtWidgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QPushButton,QComboBox,
+from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QPushButton,QComboBox,
     QCheckBox,QSpinBox,QLineEdit,QTableWidget,QTableWidgetItem,QAbstractItemView,QFileDialog,
     QApplication,QMessageBox)
 from .trip_inventory import StockStore
@@ -13,6 +13,7 @@ from .stock_screen import recognize_grid
 from .market_snapshot import market_snapshot
 from .models import quote
 from .number_fields import NumberBox
+from .i18n import tr
 from .ui_layout import FlowLayout,explanation,readable_table,compact_combos,fit_window
 
 
@@ -32,7 +33,7 @@ class RegionPicker(QDialog):
     def paintEvent(self,event):
         p=QPainter(self);p.drawImage(self.rect_for_image(),self.image)
         p.setPen(QPen(QColor('#ffd765'),2));p.drawRect(self.rect)
-        p.setPen(QColor('#ffd765'));p.drawText(15,22,'Выдели прямоугольник полных ячеек с равными отступами. Обрезанные ряды пропусти. Esc — отмена.')
+        p.setPen(QColor('#ffd765'));p.drawText(15,22,tr('Выдели прямоугольник полных ячеек с равными отступами. Обрезанные ряды пропусти. Esc — отмена.'))
     def rect_for_image(self):return QRect(0,0,self.width(),self.height())
     def mousePressEvent(self,event):
         if event.button()==Qt.LeftButton:self.begin=event.position().toPoint();self.rect=QRect(self.begin,self.begin)
@@ -83,7 +84,9 @@ class StockDialog(QDialog):
         self.auto=QCheckBox('Читать автоматически');controls.addWidget(self.auto);self.auto.toggled.connect(self.toggle_auto)
         self.kind.currentIndexChanged.connect(self.reset_capture);self.columns.valueChanged.connect(self.reset_capture)
         bank_controls=FlowLayout();body.addLayout(bank_controls)
-        self.container=ChoiceBox();self.container.setEditable(True);self.container.addItems(sorted({'Банк'}|{s['container'] for s in self.store.bank_scans(player)}));self.container.setCurrentText('Банк')
+        containers={s['container'] for s in self.store.bank_scans(player)}
+        default_container='Банк' if 'Банк' in containers else tr('Банк')
+        self.container=ChoiceBox();self.container.setProperty('userText',True);self.container.setEditable(True);self.container.addItems(sorted({default_container}|containers));self.container.setCurrentText(default_container)
         bank_controls.addWidget(QLabel('Контейнер:'));bank_controls.addWidget(self.container)
         self.align=QCheckBox('Автопозиция по перекрытию');self.align.setChecked(True);bank_controls.addWidget(self.align)
         self.first_row=NumberBox();self.first_row.setRange(1,10000);self.first_row.setValue(1);self.first_row.setEnabled(False);bank_controls.addWidget(QLabel('Первая строка области:'));bank_controls.addWidget(self.first_row)

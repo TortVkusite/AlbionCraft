@@ -4,7 +4,7 @@ from datetime import datetime,timezone
 import logging
 from PySide6.QtCore import Qt,QThread,Signal,QTimer,Slot
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (QDialog,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QComboBox,
+from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QComboBox,
     QLineEdit,QPushButton,QDoubleSpinBox,QSpinBox,QCheckBox,QTableWidget,QTableWidgetItem,
     QAbstractItemView,QTabWidget,QWidget,QMessageBox,QSplitter,QRadioButton,QButtonGroup)
 from .models import CITIES
@@ -20,7 +20,7 @@ from .trip_chain import dependency_recipes,prepare_chain,solve_chain
 from .trip_inventory import StockStore,route_stock
 from .trip_market import configure_market,turnover
 from .ui_layout import FlowLayout,explanation,readable_table,fit_window
-from PySide6.QtWidgets import QScrollArea
+from .i18n_widgets import QScrollArea
 from .number_fields import NumberBox,LargeNumberBox
 
 FAMILIES={'ore':'Руда / слитки','fiber':'Волокно / ткань','hide':'Шкуры / кожа','wood':'Древесина / брусья','rock':'Камень / блоки'}
@@ -207,7 +207,8 @@ class TripDialog(QDialog):
         prices,histories=market_snapshot(self.owner,self.root,ids)
         return self.fingerprint(prices,histories)
     def filter(self,*args):
-        for n,r in enumerate(self.recipes):self.choices.setRowHidden(n,bool(self.family.currentData() and r.crafting_category!=self.family.currentData()) or self.search.text().casefold() not in (r.name+f' T{r.tier}.{r.enchantment}').casefold())
+        from .item_names import matches_item
+        for n,r in enumerate(self.recipes):self.choices.setRowHidden(n,bool(self.family.currentData() and r.crafting_category!=self.family.currentData()) or not matches_item(r.item_id,self.search.text(),r.name+f' T{r.tier}.{r.enchantment}'))
     def check_visible(self,value):
         for n,r in enumerate(self.recipes):
             if not self.choices.isRowHidden(n):self.items[r.item_id].setCheckState(Qt.Checked if value else Qt.Unchecked)
@@ -273,7 +274,7 @@ class TripDialog(QDialog):
     def open_presets(self):
         from copy import deepcopy
         dialog=QDialog(self);dialog.setWindowTitle('Сохранённые сценарии ходки');dialog.resize(650,260);body=QVBoxLayout(dialog)
-        choose=QComboBox();body.addWidget(choose);name=QLineEdit();name.setMaxLength(80);name.setPlaceholderText('Например: Руда — Форт → Зетфорд');body.addWidget(name)
+        choose=QComboBox();choose.setProperty('userText',True);body.addWidget(choose);name=QLineEdit();name.setMaxLength(80);name.setPlaceholderText('Например: Руда — Форт → Зетфорд');body.addWidget(name)
         info=QLabel('Сохраняются маршрут, персонаж, вес, бюджет, выбранные ресурсы, лимиты, фокус и настройки рынка. Цены и количество запасов загружаются заново при расчёте.');info.setWordWrap(True);body.addWidget(info)
         presets=self.owner.settings.setdefault('trip_presets',{})
         def refresh(selected=None):

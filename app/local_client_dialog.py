@@ -1,6 +1,6 @@
 import os,subprocess
 from pathlib import Path
-from PySide6.QtWidgets import QDialog,QVBoxLayout,QLabel,QLineEdit,QPushButton,QFileDialog,QApplication,QMessageBox
+from .i18n_widgets import QDialog,QVBoxLayout,QLabel,QLineEdit,QPushButton,QFileDialog,QApplication,QMessageBox
 from .local_market import PORT
 from .client_setup import SetupWorker,capture_ready
 from .paths import data_root,resource_root
