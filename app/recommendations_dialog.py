@@ -2,17 +2,22 @@ from PySide6.QtCore import Qt,QTimer
 from PySide6.QtGui import QColor
 from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QTabWidget,QTableWidget,QTableWidgetItem,
     QAbstractItemView,QPushButton,QApplication)
-from .recommendations import build_recommendations
 from .item_names import item_name,recipe_variant
 from .filter_dialog import QUALITY_NAMES
 from .formatting import money,roi,timestamp
 from .ui_layout import FlowLayout,readable_table,fit_window
+from .responsive import GuiBatch
+from .background import ProcessWorker
 
 
 class RecommendationsDialog(QDialog):
     def __init__(self,parent):
         super().__init__(parent);self.setWindowTitle('Рекомендации');self.resize(1120,680)
         self.owner=parent;layout=QVBoxLayout(self);self.summary=QLabel();self.summary.setWordWrap(True);layout.addWidget(self.summary)
+        self.paint_batch=GuiBatch(self)
+        self.calculation_worker=None;self.generation=0;self.closed=False
+        self.data=dict(update=[],known=[],candidates=[],with_price=0,price_count=0)
+        self.calculate_timer=QTimer(self);self.calculate_timer.setSingleShot(True);self.calculate_timer.setInterval(180);self.calculate_timer.timeout.connect(self.start_calculation)
         self.tabs=QTabWidget();layout.addWidget(self.tabs);self.tables=[]
         headers=[['Предмет','Город','Роль','Причина','Цена','Возраст','Рецептов'],
             ['Предмет','Город','Роль','Цена','Дата UTC','Источник'],
@@ -31,18 +36,39 @@ class RecommendationsDialog(QDialog):
         for table in self.tables:readable_table(table);table.setColumnWidth(0,330)
         fit_window(self)
     def refresh(self):
+        if self.closed:return
         import time
         signature=(id(self.owner.recommendation_rows),repr(self.owner.settings.get('recommendations',{})),repr(self.owner.settings.get('result_limits',{})),int(time.time()//60))
         if signature==getattr(self,'signature',None):
             self.update.setEnabled(bool(self.data['update']) and not (self.owner.worker and self.owner.worker.isRunning()));return
         self.signature=signature
-        self.data=build_recommendations(self.owner.recommendation_rows,self.owner.settings)
+        self.generation+=1;self.paint_batch.cancel()
+        if self.calculation_worker and self.calculation_worker.isRunning():self.calculation_worker.requestInterruption()
+        self.calculate_timer.start()
+    def start_calculation(self):
+        if self.calculation_worker and self.calculation_worker.isRunning():self.calculate_timer.start();return
+        from copy import deepcopy
+        generation=self.generation
+        self.summary.setText('Пересчитываю рекомендации…')
+        self.calculation_worker=ProcessWorker('recommendations',dict(rows=self.owner.recommendation_rows,settings=deepcopy(self.owner.settings)),self)
+        self.calculation_worker.ready.connect(lambda data:self.received(data) if generation==self.generation and not self.closed else None)
+        self.calculation_worker.failed.connect(lambda message:self.summary.setText(message) if generation==self.generation and not self.closed else None)
+        self.calculation_worker.finished.connect(self.calculation_finished)
+        self.calculation_worker.start()
+    def calculation_finished(self):
+        worker=self.sender()
+        if worker is self.calculation_worker:self.calculation_worker=None
+        if worker:worker.deleteLater()
+    def received(self,data):
+        self.data=data
         self.summary.setText(f'Для выбранных фильтров: цены есть {self.data["with_price"]}/{self.data["price_count"]} • обновить: {len(self.data["update"])} • кандидатов: {len(self.data["candidates"])}. Порог давности: {self.owner.settings.get("recommendations",{}).get("stale_hours",6)} ч.')
         self.update.setEnabled(bool(self.data['update']) and not (self.owner.worker and self.owner.worker.isRunning()))
+        self.paint_batch.start(self.paint_rows())
+    def paint_rows(self):
         for group,table in zip(('update','known','candidates'),self.tables):
             # Preserve selection while new prices arrive.
             selected=table.item(table.currentRow(),0);selected_key=selected.data(Qt.UserRole) if selected else None
-            entries=self.data[group];table.setRowCount(len(entries))
+            entries=self.data[group];table.setRowCount(0);table.setRowCount(len(entries))
             for n,p in enumerate(entries):
                 if group=='candidates':
                     row=p['row'];r=row['recipe'];key=(r.item_id,row['sell'],row.get('quality',1))
@@ -62,6 +88,7 @@ class RecommendationsDialog(QDialog):
                     if group=='update' and c==3:cell.setForeground(QColor('#ff9999'))
                 table.setRowHeight(n,56 if group=='candidates' and '\n' in values[0] else 40)
                 if key==selected_key:table.selectRow(n)
+                yield
             table.setColumnWidth(0,330);table.setColumnWidth(1,110)
     def copy_name(self):
         table=self.tables[self.tabs.currentIndex()];cell=table.item(table.currentRow(),0)
@@ -70,5 +97,8 @@ class RecommendationsDialog(QDialog):
     def details(self,n,c):
         from .details import Details
         row=self.data['candidates'][n]['row'];Details(self.owner,row,row.get('quality',1),self.owner.settings).exec()
-    def done(self,result):self.timer.stop();super().done(result)
-    def showEvent(self,event):super().showEvent(event);self.timer.start();self.refresh()
+    def done(self,result):
+        self.closed=True;self.generation+=1;self.timer.stop();self.calculate_timer.stop();self.paint_batch.cancel()
+        if self.calculation_worker and self.calculation_worker.isRunning():self.calculation_worker.requestInterruption()
+        super().done(result)
+    def showEvent(self,event):super().showEvent(event);self.closed=False;self.signature=None;self.timer.start();self.refresh()

@@ -65,7 +65,7 @@ class Cache:
                         selected=new if use_new else old
                         result[side]=selected.get(side,0)
                         result[side+'_date']=selected.get(side+'_date','0001-01-01T00:00:00')
-                        result[side+'_source']='Europe API' if use_new else 'Последняя сохранённая котировка' if old_value is not None else 'Нет данных'
+                        result[side+'_source']=new.get(side+'_source','AODP API') if use_new else 'Последняя сохранённая котировка' if old_value is not None else 'Нет данных'
                     if new or old:
                         merged.append(result)
                         self.db.execute('INSERT OR REPLACE INTO observations VALUES(?,?,?,?)',(*key,json.dumps(result)))

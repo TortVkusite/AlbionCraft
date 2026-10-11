@@ -35,6 +35,9 @@ from .version import __version__
 from .i18n import LANGUAGES,get_language,set_language,tr,default_language
 from .ui_layout import FlowLayout,explanation,fit_window,readable_table
 from .number_fields import NumberBox
+from .regions import REGIONS,region_key,region_root,preferences,save_preferences
+from .responsive import GuiBatch,set_choices
+from .background import ProcessWorker
 from PySide6.QtGui import QIcon
 
 ROOT=data_root()
@@ -74,14 +77,19 @@ def combo(options):
     return box
 
 class Window(QMainWindow):
-    def __init__(self):
-        super().__init__();self.root=ROOT;self.setWindowTitle('AlbionCraft • Europe');self.resize(1540,900)
+    def __init__(self,region=None):
+        super().__init__();self.base_root=ROOT
+        prefs=preferences(self.base_root)
+        try:self.region=region_key(region or prefs.get('region','europe'))
+        except ValueError:self.region='europe'
+        self.root=region_root(self.base_root,self.region);self.region_label=REGIONS[self.region]['label']
+        self.setWindowTitle('AlbionCraft • '+self.region_label);self.resize(1540,900)
         self.setWindowIcon(QIcon(str(resource_root()/'app/assets/albioncraft.svg')))
         self.restoring_view=True
-        self.settings_path=ROOT/'settings.json'
+        self.settings_path=self.root/'settings.json'
         try:self.settings=json.loads(self.settings_path.read_text(encoding='utf-8'))
         except (OSError,ValueError):self.settings={}
-        set_language(self.settings.get('language','ru' if self.settings else get_language()))
+        set_language(prefs.get('language',self.settings.get('language','ru' if self.settings else get_language())))
         if not self.settings:self.settings['progress_player']=tr('Мой персонаж')
         help_menu=self.menuBar().addMenu(tr('Помощь'))
         about=help_menu.addAction(tr('О программе'));about.triggered.connect(self.about)
@@ -92,9 +100,13 @@ class Window(QMainWindow):
             action=language_menu.addAction(label);action.setCheckable(True);action.setChecked(code==get_language())
             language_group.addAction(action);self.language_actions[code]=action
             action.triggered.connect(lambda checked=False,code=code:self.change_language(code))
-        self.recipes=load_catalog(ROOT);self.api=AlbionAPI();self.worker=None;self.last=None;self.visible=[];self.recommendation_rows=[]
+        self.recipes=load_catalog(self.root);self.api=AlbionAPI(self.region);self.worker=None;self.last=None;self.visible=[];self.recommendation_rows=[]
+        self.render_worker=None;self.render_generation=0;self.pending_render=False
+        self.render_timer=QTimer(self);self.render_timer.setSingleShot(True);self.render_timer.timeout.connect(self.render_now)
+        self.table_batch=GuiBatch(self);self.table_batch.failed.connect(lambda message:self.status.setText(message))
         self.settings.setdefault('auto_rules',True)
-        self.icons=Icons(ROOT,self);self.icons.ready.connect(self.icon_ready)
+        self.settings['region_label']=self.region_label
+        self.icons=Icons(self.base_root,self);self.icons.ready.connect(self.icon_ready)
         self.setStyleSheet('QMainWindow,QDialog,QWidget{background:#1d2127;color:#e0e5eb;font-family:"Segoe UI";font-size:13px;}'
             'QLineEdit,QComboBox,QSpinBox,QDoubleSpinBox{background:#2a3038;border:1px solid #424b56;border-radius:5px;padding:6px;}'
             'QPushButton{background:#303b49;border:1px solid #4c6179;border-radius:5px;padding:8px 14px;}'
@@ -104,7 +116,7 @@ class Window(QMainWindow):
             'QTableWidget::item:selected{background:#41536a;color:white;}')
         body=QWidget();self.setCentralWidget(body);layout=QVBoxLayout(body);layout.setSpacing(8)
         heading_bar=FlowLayout();layout.addLayout(heading_bar)
-        heading=QLabel('AlbionCraft  /  Europe');heading.setStyleSheet('font-size:24px;font-weight:600;');heading_bar.addWidget(heading);heading_bar.addStretch()
+        heading=QLabel('AlbionCraft  /  '+self.region_label);heading.setStyleSheet('font-size:24px;font-weight:600;');heading_bar.addWidget(heading);heading_bar.addStretch()
         for title,action in [('Калькулятор ходки',self.open_trip),('Билды / рынок',self.open_builds),('Мои заказы',self.open_orders),('Рекомендации',self.open_recommendations),('Персонализация',self.personalize),('Прогресс / журнал',self.open_profile)]:
             button=QPushButton(title);heading_bar.addWidget(button);button.clicked.connect(action)
         operation=FlowLayout();layout.addLayout(operation)
@@ -120,6 +132,8 @@ class Window(QMainWindow):
         bounds=QPushButton('Прибыль / бюджет');operation.addWidget(bounds);bounds.clicked.connect(self.configure_bounds)
         self.hide_excluded=QCheckBox('Без исключённых');self.hide_excluded.setChecked(True);operation.addWidget(self.hide_excluded);operation.addStretch()
         cities=FlowLayout();layout.addLayout(cities)
+        cities.addWidget(QLabel('Сервер:'));self.server=combo([(v['label'],k) for k,v in REGIONS.items()]);self.server.setCurrentIndex(self.server.findData(self.region));cities.addWidget(self.server)
+        self.server.currentIndexChanged.connect(lambda:self.change_region(self.server.currentData()))
         self.buy=combo([('Все города',None)]+[(c,c) for c in CITIES])
         self.craft=combo([('Все города',None)]+[(c,c) for c in CITIES])
         self.craft.setCurrentIndex(self.craft.findData('Thetford'))
@@ -129,6 +143,9 @@ class Window(QMainWindow):
             lab=QLabel(label);self.city_labels.append(lab);cities.addWidget(lab);box.setFixedWidth(170);cities.addWidget(box)
         self.caerleon=QCheckBox('Включить Caerleon');self.caerleon.setChecked(bool(self.settings.get('include_caerleon',False)));cities.addWidget(self.caerleon)
         self.caerleon.setToolTip('Межгородская перепродажа: соседние города по кольцу; с этой галочкой также маршруты в/из Caerleon (обычный рынок).')
+        self.brecilien=QCheckBox('Включить Brecilien');self.brecilien.setChecked(bool(self.settings.get('include_brecilien',False)));cities.addWidget(self.brecilien)
+        self.brecilien.setToolTip('Сравнивать цены в/из Brecilien. Доступ через Туманы / Пути Авалона и стоимость перевозки нужно учитывать отдельно.')
+        self.brecilien.toggled.connect(self.routes_changed)
         cities.addStretch()
         rule_bar=FlowLayout();layout.addLayout(rule_bar)
         self.auto_rules=QCheckBox('Авто: игровые бонусы и комиссии');self.auto_rules.setChecked(self.settings['auto_rules']);rule_bar.addWidget(self.auto_rules)
@@ -141,6 +158,8 @@ class Window(QMainWindow):
         self.search=QLineEdit();self.search.setPlaceholderText('Название или ID предмета');self.search.setMinimumWidth(240);filters.addWidget(self.search)
         cats=sorted({r.category for r in self.recipes})
         self.category=combo([('Все типы',None)]+[(CATEGORIES.get(c,c),c) for c in cats]);filters.addWidget(self.category)
+        self.material=combo([('Все материалы',None),('Тканевая','cloth'),('Кожаная','leather'),('Латная','plate')]);filters.addWidget(self.material)
+        self.material.currentIndexChanged.connect(self.rebuild_family)
         self.family=combo([('Все виды',None)]);filters.addWidget(self.family)
         self.item=combo([('Все предметы',None)]);filters.addWidget(self.item,2)
         self.tier=combo([('Все уровни',None)]+[(f'T{n}',n) for n in range(1,9)]);self.tier.setCurrentIndex(self.tier.findData(4));filters.addWidget(self.tier)
@@ -170,7 +189,7 @@ class Window(QMainWindow):
         self.table=SearchTable(0,13)
         self.table.setHorizontalHeaderLabels(['Предмет','Город','Продажа в','Закупка','Продажа','Прибыль\n(≤: граница)','ROI, %','Прибыль с F','ROI с F, %','Объём продаж\nза 7 дней','Дата','Состояние расчёта','Надёжность'])
         readable_table(self.table)
-        for c,width in enumerate([250,110,110,105,105,130,95,115,100,210,155,180,160]):self.table.setColumnWidth(c,width)
+        for c,width in enumerate([250,110,110,105,105,130,95,140,110,210,155,180,160]):self.table.setColumnWidth(c,width)
         self.table.setIconSize(QSize(44,44));self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers);self.table.verticalHeader().setVisible(False)
         self.table.setSortingEnabled(False);self.table.horizontalHeader().setSortIndicatorShown(True);self.table.horizontalHeader().setStretchLastSection(True);layout.addWidget(self.table,1)
@@ -221,17 +240,17 @@ class Window(QMainWindow):
         self.restoring_view=False
         fit_window(self)
     def view_controls(self):
-        return {key:getattr(self,key) for key in ('activity','buy','craft','sell','category','family','item','tier','enchantment','quality','demand','mode','search','age','any_age','with_prices','hide_excluded')}
+        return {key:getattr(self,key) for key in ('activity','buy','craft','sell','category','material','family','item','tier','enchantment','quality','demand','mode','search','age','any_age','with_prices','hide_excluded')}
     def about(self):
         QMessageBox.about(self,'AlbionCraft',f'<h3>AlbionCraft {__version__} · Beta</h3>'
-            '<p>Рынок, переработка, ходки и прогресс для Albion Online Europe.</p>'
+            '<p>Рынок, переработка, ходки и прогресс для Albion Online.</p>'
             '<p>Исходный код AlbionCraft — MIT. Сторонние библиотеки и игровые данные имеют собственные условия.</p>'
             '<p>Независимый проект сообщества. Не связан с Sandbox Interactive.</p>'
             '<p>Цены и объёмы могут быть неполными; прибыль — оценка по доступным данным.</p>')
     def open_data_folder(self):
         from PySide6.QtGui import QDesktopServices
         from PySide6.QtCore import QUrl
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(ROOT)))
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.root)))
     def restore_view(self):
         view=self.settings.get('view',{})
         if not view:return
@@ -247,12 +266,13 @@ class Window(QMainWindow):
                 elif isinstance(control,QSpinBox):control.setValue(int(value))
                 else:control.setText(str(value))
             restore('category')
+            restore('material')
             if 'category' in view:self.rebuild_family()
             restore('family')
             if 'category' in view or 'family' in view:self.rebuild_items()
             restore('item')
             for key in controls:
-                if key not in ('category','family','item'):restore(key)
+                if key not in ('category','material','family','item'):restore(key)
             metric=view.get('sort_metric','profit')
             self.sort_metric=metric if metric in ('profit','roi','focus_profit','focus_roi') else 'profit'
             self.sort_descending=bool(view.get('sort_descending',True))
@@ -289,18 +309,18 @@ class Window(QMainWindow):
         self.settings['excluded_items']=sorted(excluded);self.persist_view();self.page.setValue(1);self.render()
     def open_builds(self):
         from .builds_dialog import BuildsDialog
-        if not hasattr(self,'builds_dialog'):self.builds_dialog=BuildsDialog(self,ROOT)
+        if not hasattr(self,'builds_dialog'):self.builds_dialog=BuildsDialog(self,self.root)
         self.builds_dialog.show();self.builds_dialog.raise_();self.builds_dialog.activateWindow()
     def open_trip(self):
         from .trip_dialog import TripDialog
-        TripDialog(self,ROOT).exec()
+        TripDialog(self,self.root).exec()
     def open_recommendations(self):
         from .recommendations_dialog import RecommendationsDialog
         if not hasattr(self,'recommendation_dialog'):self.recommendation_dialog=RecommendationsDialog(self)
         self.recommendation_dialog.show();self.recommendation_dialog.raise_();self.recommendation_dialog.activateWindow();self.recommendation_dialog.refresh()
     def open_orders(self):
         from .own_orders_dialog import OwnOrdersDialog
-        OwnOrdersDialog(self,ROOT/'player.sqlite').exec()
+        OwnOrdersDialog(self,self.root/'player.sqlite').exec()
     def save_local_settings(self):
         self.settings_path.write_text(json.dumps(self.settings,ensure_ascii=False,indent=2),encoding='utf-8')
     def configure_local(self):
@@ -310,16 +330,17 @@ class Window(QMainWindow):
         self.settings['local_enabled']=checked
         if save:self.save_local_settings()
         if checked and (self.local_receiver is None or not self.local_receiver.isRunning()):
-            self.local_receiver=LocalReceiver(ROOT/'prices.sqlite',self.settings['local_token'])
+            self.local_receiver=LocalReceiver(self.root/'prices.sqlite',self.settings['local_token'],region=self.region)
+            self.local_receiver.finished.connect(lambda:self.local_changed(True,save=False) if self.local_enabled.isChecked() and not self.closing else None)
             self.local_receiver.status.connect(self.local_status.setText);self.local_receiver.updated.connect(self.local_updated);self.local_receiver.start()
         elif not checked and self.local_receiver:
-            self.local_receiver.requestInterruption();self.local_receiver.wait(6000);self.local_status.setText('Из игры: выключено')
+            self.local_receiver.requestInterruption();self.local_status.setText('Из игры: выключено')
         self.refresh_stream()
     def local_updated(self,count):
         if not count:return
         self.local_count+=max(0,count)
         from datetime import datetime
-        self.local_status.setText(f'Из игры: получено {self.local_count} ордеров • '+(f'история: {abs(count)} точек • ' if count<0 else '')+f'последнее наблюдение {datetime.now().strftime("%H:%M")} • Europe')
+        self.local_status.setText(f'Из игры: получено {self.local_count} ордеров • '+(f'история: {abs(count)} точек • ' if count<0 else '')+f'последнее наблюдение {datetime.now().strftime("%H:%M")} • {self.region_label}')
         if self.last is None:self.last=dict(prices=[],api_prices=[],histories=[],cached=False,warning='Из твоей игры: только просмотренные ордера; история спроса загружается отдельно.')
         self.refresh_stream()
         if count>0 and self.last:
@@ -336,7 +357,7 @@ class Window(QMainWindow):
         from .destiny_dialog import DestinyDialog
         current=self.table.currentRow();cell=self.table.item(current,0) if current>=0 else None
         row=self.visible[cell.data(Qt.UserRole+1)] if cell else None
-        DestinyDialog(self,ROOT,self.recipes,row).exec()
+        DestinyDialog(self,self.root,self.recipes,row).exec()
     def comparison_ids(self,recipes):
         quality=self.quality.currentData()
         if self.settings.get('prefer_upgrades',True):return comparison_price_ids(recipes,self.recipes)
@@ -381,11 +402,11 @@ class Window(QMainWindow):
             self.settings_path.write_text(json.dumps(self.settings,ensure_ascii=False,indent=2),encoding='utf-8')
         if checked and (self.stream is None or not self.stream.isRunning()):
             ids={r.item_id for r in self.recipes}|{i.item_id for r in self.recipes for i in r.ingredients}
-            self.stream=OrderStream(ROOT/'prices.sqlite',ids)
+            self.stream=OrderStream(self.root/'prices.sqlite',ids,self.region)
             self.stream.status.connect(self.stream_status.setText);self.stream.updated.connect(self.stream_updated);self.stream.start()
             self.stream.finished.connect(self.stream_stopped)
         elif not checked and self.stream:
-            self.stream.requestInterruption();self.stream.wait(6000);self.stream_status.setText('NATS: выключен')
+            self.stream.requestInterruption();self.stream_status.setText('NATS: выключен')
         self.stream_dirty=True;self.refresh_stream()
     def stream_stopped(self):
         if self.live.isChecked() and not self.closing:self.stream_changed(True,save=False)
@@ -403,13 +424,13 @@ class Window(QMainWindow):
         histories={(h['item_id'],h['location'],h['quality']):h for h in api_history}
         if self.live.isChecked():
             ids=self.required_ids(self.filtered())
-            cache=Cache(ROOT/'prices.sqlite')
+            cache=Cache(self.root/'prices.sqlite')
             try:observed=cache.stream_prices(ids)
             finally:cache.close()
             merged=supplement(primary,observed)
         else:merged=primary
         if hasattr(self,'local_enabled') and self.local_enabled.isChecked():
-            store=LocalStore(ROOT/'prices.sqlite')
+            store=LocalStore(self.root/'prices.sqlite')
             try:
                 # Capture is independent of display filters: resources viewed before a
                 # recipe is selected must also be available on its very first render.
@@ -440,6 +461,7 @@ class Window(QMainWindow):
     def activity_changed(self):
         resale=self.activity.currentData()=='resale'
         self.caerleon.setVisible(resale)
+        self.brecilien.setVisible(resale)
         if self.activity.currentData()=='enchant' and self.enchantment.currentData()==0:self.enchantment.setCurrentIndex(self.enchantment.findData(1))
         for n,box in enumerate([self.buy,self.craft,self.sell]):
             box.setVisible(resale if n!=1 else not resale);self.city_labels[n].setVisible(resale if n!=1 else not resale)
@@ -463,23 +485,28 @@ class Window(QMainWindow):
             self.queue_view_save()
     def routes_changed(self):
         self.settings['include_caerleon']=self.caerleon.isChecked()
+        self.settings['include_brecilien']=self.brecilien.isChecked()
         self.settings_path.write_text(json.dumps(self.settings,ensure_ascii=False,indent=2),encoding='utf-8');self.page.setValue(1);self.render()
     def rebuild_family(self):
+        self.material.setVisible(self.category.currentData()=='armors')
         self.family.blockSignals(True);self.family.clear();self.family.addItem('Все виды',None)
-        families=sorted({r.family for r in self.recipes if self.category.currentData() in (None,r.category)})
+        families=sorted({r.family for r in self.recipes if self.category.currentData() in (None,r.category) and self.material_matches(r)})
         for f in families:self.family.addItem(FAMILIES.get(f,f),f)
         self.family.setCurrentIndex(0);self.family.blockSignals(False);self.rebuild_items()
     def rebuild_items(self):
-        self.item.blockSignals(True);self.item.clear();self.item.addItem('Все предметы',None)
+        self.item.blockSignals(True)
         items={}
         for r in self.recipes:
-            if self.category.currentData() in (None,r.category) and self.family.currentData() in (None,r.family):
+            if self.category.currentData() in (None,r.category) and self.family.currentData() in (None,r.family) and self.material_matches(r):
                 key=r.base_id.split('_',1)[1];label=r.name.split(' (')[0];items.setdefault(key,label)
-        for k,label in sorted(items.items(),key=lambda x:x[1]):self.item.addItem(label,k)
+        set_choices(self.item,[('Все предметы',None)]+[(label,k) for k,label in sorted(items.items(),key=lambda x:x[1])])
         self.item.setCurrentIndex(0);self.item.blockSignals(False);self.render()
+    def material_matches(self,recipe):
+        return self.category.currentData()!='armors' or not self.material.currentData() or recipe.family.startswith(self.material.currentData()+'_')
     def filtered(self):
         text=self.search.text().strip().casefold()
         result=[r for r in self.recipes if self.category.currentData() in (None,r.category)
+            and self.material_matches(r)
             and self.family.currentData() in (None,r.family)
             and self.item.currentData() in (None,r.base_id.split('_',1)[1])
             and self.tier.currentData() in (None,r.tier) and r.enchantment in self.selected_enchantments()
@@ -506,7 +533,7 @@ class Window(QMainWindow):
         self.start_fetch([],True,ids)
     def start_fetch(self,recipes,force,extra_ids):
         self.update.setEnabled(False);self.cached.setEnabled(False);self.cancel.setEnabled(True)
-        self.worker=Fetch(self.api,recipes,None,ROOT,force,self.activity.currentData(),extra_ids)
+        self.worker=Fetch(self.api,recipes,None,self.root,force,self.activity.currentData(),extra_ids)
         self.worker.progress.connect(self.status.setText);self.worker.ready.connect(self.received)
         self.worker.failed.connect(self.error);self.worker.finished.connect(self.finished);self.worker.start()
     def finished(self):
@@ -527,40 +554,43 @@ class Window(QMainWindow):
         self.last['api_prices']=self.last['prices'];self.render();self.refresh_stream()
     def render(self,*args):
         if hasattr(self,'load_timer'):self.load_timer.start()
-        if not self.last:return
-        activity=self.activity.currentData()
-        allowed=set(self.filtered());recipes=list(allowed)
-        self.settings.update(sale_mode=self.mode.currentData(),activity=activity,same_city=activity in ('craft','enchant'),nearby_only=True,include_caerleon=self.caerleon.isChecked())
-        age_limit=None if self.any_age.isChecked() else self.age.value()
-        if activity in ('craft','enchant'):
-            cities=self.selected_cities(self.craft)
-            rows=scan(recipes,self.last['prices'],self.last['histories'],cities,cities,cities,self.settings,self.quality.currentData(),age_limit)
-        else:
-            buy=self.selected_cities(self.buy) if activity=='resale' else self.selected_cities(self.craft)
-            sell=self.selected_cities(self.sell) if activity=='resale' else buy
-            rows=trading_scan(recipes,self.last['prices'],self.last['histories'],buy,sell,self.settings,self.quality.currentData(),age_limit,activity)
-        upgrade_hidden=[]
-        if self.settings.get('prefer_upgrades',True):
-            rows,upgrade_hidden=prefer_enchanted(rows,self.last['prices'],age_limit,self.quality.currentData())
-        for row in rows:row.setdefault('quality',self.quality.currentData() if isinstance(self.quality.currentData(),int) else 1)
-        self.recommendation_rows=rows[:]
-        if self.demand.currentData():rows=[r for r in rows if r['demand']['kind']==self.demand.currentData()]
-        before_limits=len(rows);rows=[r for r in rows if in_bounds(r,self.settings)];limits_hidden=before_limits-len(rows)
-        hidden=0
-        if self.with_prices.isChecked():
-            priced=[r for r in rows if has_known_price(r)]
-            hidden=len(rows)-len(priced);rows=priced
-        sort=self.sort_metric;group='focus' if sort.startswith('focus_') else 'base';metric='roi' if sort.endswith('roi') else 'profit'
-        def rank(row):
-            x=row[group]
-            return (x is not None and x.get(metric) is not None,x[metric] if x and x.get(metric) is not None else Decimal('-Infinity'))
-        present=[r for r in rows if r[group] is not None and r[group].get(metric) is not None]
-        missing=[r for r in rows if r[group] is None or r[group].get(metric) is None]
-        present.sort(key=rank,reverse=self.sort_descending);rows=present+missing
+        if not self.last or getattr(self,'closing',False):return
+        self.render_generation+=1;self.table_batch.cancel()
+        if self.render_worker and self.render_worker.isRunning():self.render_worker.requestInterruption()
+        self.render_timer.start(180)
+    def render_now(self):
+        if not self.last or getattr(self,'closing',False):return
+        if self.render_worker and self.render_worker.isRunning():self.pending_render=True;return
+        from copy import deepcopy
+        activity=self.activity.currentData();recipes=self.filtered()
+        self.settings.update(sale_mode=self.mode.currentData(),activity=activity,same_city=activity in ('craft','enchant'),nearby_only=True,include_caerleon=self.caerleon.isChecked(),include_brecilien=self.brecilien.isChecked())
+        data=dict(recipes=recipes,settings=deepcopy(self.settings),activity=activity,
+            prices=self.last['prices'],histories=self.last['histories'],quality=self.quality.currentData(),
+            age=None if self.any_age.isChecked() else self.age.value(),buy=self.selected_cities(self.buy),
+            craft=self.selected_cities(self.craft),sell=self.selected_cities(self.sell),demand=self.demand.currentData(),
+            with_prices=self.with_prices.isChecked(),sort=self.sort_metric,descending=self.sort_descending)
+        generation=self.render_generation
+        self.status.setText('Пересчитываю выбранные предметы…')
+        self.render_worker=ProcessWorker('scan',data,self)
+        self.render_worker.ready.connect(lambda result:self.render_received(generation,result,data))
+        self.render_worker.failed.connect(lambda message:self.status.setText('Ошибка расчёта: '+message) if generation==self.render_generation else None)
+        self.render_worker.finished.connect(self.render_finished);self.render_worker.start()
+    def render_finished(self):
+        worker=self.sender()
+        if worker is self.render_worker:self.render_worker=None
+        if worker:worker.deleteLater()
+        if self.pending_render and not getattr(self,'closing',False):self.pending_render=False;self.render_timer.start(0)
+    def render_received(self,generation,result,data):
+        if generation!=self.render_generation or getattr(self,'closing',False):return
+        self.recommendation_rows=result['recommendations']
+        self.table_batch.start(self.display_rows(result,data))
+    def display_rows(self,result,data):
+        rows=result['rows'];upgrade_hidden=result['upgrades'];hidden=result['hidden'];limits_hidden=result['limited']
+        recipes=data['recipes'];allowed=set(recipes);activity=data['activity'];sort=data['sort']
         total=len(rows);pages=max(1,(total+99)//100)
         self.page.blockSignals(True);self.page.setMaximum(pages);self.page.blockSignals(False)
         begin=(self.page.value()-1)*100;self.visible=rows[begin:begin+100]
-        self.table.setSortingEnabled(False);self.table.setRowCount(len(self.visible))
+        self.table.setSortingEnabled(False);self.table.setRowCount(0);self.table.setRowCount(len(self.visible))
         self.table.setColumnHidden(2,activity!='resale')
         variants={}
         for recipe in recipes:variants.setdefault((recipe.item_id,recipe.path),set()).add(recipe.variant)
@@ -605,10 +635,11 @@ class Window(QMainWindow):
                 if c==10 and (any('устарело' in p['status'] or 'будущем' in p['status'] for p in row['parts']) or 'устарело' in row['sale_status'] or 'будущем' in row['sale_status']):cell.setForeground(QColor('#ff7777'))
                 self.table.setItem(n,c,cell)
             self.table.setRowHeight(n,max(80 if label.count('\n')>1 else 66 if '\n' in label else 60,76 if d['per_day']>=1000 else 60))
-        for c,width in enumerate([210,95,95,105,95,120,85,105,85,245,160,180,160]):self.table.setColumnWidth(c,width)
+            yield
+        for c,width in enumerate([210,95,95,105,95,120,85,140,110,245,160,180,160]):self.table.setColumnWidth(c,width)
         column={'profit':5,'roi':6,'focus_profit':7,'focus_roi':8}[sort]
         self.table.horizontalHeader().setSortIndicator(column,Qt.DescendingOrder if self.sort_descending else Qt.AscendingOrder)
-        source='кэш REST' if self.last['cached'] else 'Europe REST API'
+        source='кэш REST' if self.last['cached'] else self.region_label+' REST API'
         extra=sum(bool(p.get('nats_observations')) for p in self.last['prices'])
         if extra:source+=f' + NATS: {extra} предметов/городов/качеств'
         local_quotes=sum(bool(p.get('local_observations')) for p in self.last['prices'])
@@ -634,24 +665,34 @@ class Window(QMainWindow):
         cell=self.table.item(n,0)
         if cell:
             row=self.visible[cell.data(Qt.UserRole+1)];Details(self,row,row.get('quality',self.quality.currentData()),self.settings).exec()
-    def change_language(self,code):
-        if code==get_language():return
+    def change_region(self,region):
+        if region==self.region or self.closing:return
+        save_preferences(self.base_root,region=region,language=get_language())
+        self.change_language(get_language(),region)
+    def change_language(self,code,region=None):
+        if self.closing:return
+        if code==get_language() and region is None:return
         tracker=getattr(self,'builds_dialog',None)
-        if (self.worker and self.worker.isRunning()) or (tracker and tracker.worker and tracker.worker.isRunning()):
+        if region is None and ((self.worker and self.worker.isRunning()) or (tracker and tracker.worker and tracker.worker.isRunning())):
             self.language_actions[get_language()].setChecked(True)
             QMessageBox.information(self,'Language / Язык',tr('Запрос выполняется; дождитесь завершения.'));return
-        self.settings['language']=code;self.persist_view()
+        self.settings['language']=code;self.persist_view();save_preferences(self.base_root,language=code)
         app=QApplication.instance();app.setQuitOnLastWindowClosed(False)
         client_process=self.client_process;self.client_process=None
+        restart_client=region is not None and client_process and client_process.poll() is None
+        if restart_client:client_process.terminate();client_process=None
         for name in ('builds_dialog','recommendation_dialog'):
             if dialog:=getattr(self,name,None):dialog.close()
         self.close()
         def reopen():
             if self.isVisible():QTimer.singleShot(200,reopen);return
             try:
-                set_language(code);window=Window();app._albioncraft_window=window;window.show()
+                set_language(code);window=Window(region or self.region);app._albioncraft_window=window;window.show()
                 window.client_process=client_process
                 if hasattr(self,'client_error_log'):window.client_error_log=self.client_error_log
+                if restart_client:
+                    from .local_client_dialog import ClientDialog
+                    dialog=ClientDialog(window);dialog.start();dialog.deleteLater()
                 self.deleteLater()
             except Exception as exc:
                 if client_process and client_process.poll() is None:client_process.terminate()
@@ -660,20 +701,24 @@ class Window(QMainWindow):
         QTimer.singleShot(0,reopen)
 
     def closeEvent(self,event):
+        first=not getattr(self,'closing',False)
+        self.closing=True;self.render_timer.stop();self.table_batch.cancel()
+        if first:
+            self.centralWidget().setEnabled(False);self.menuBar().setEnabled(False)
+            for name in ('builds_dialog','recommendation_dialog'):
+                if dialog:=getattr(self,name,None):dialog.close()
+        for timer_name in ('load_timer','stream_timer','view_timer'):
+            if timer:=getattr(self,timer_name,None):timer.stop()
         tracker=getattr(self,'builds_dialog',None)
-        if tracker and tracker.worker and tracker.worker.isRunning():
-            self.status.setText('Завершается загрузка билдов…');event.ignore();QTimer.singleShot(1000,self.close);return
-        if self.worker and self.worker.isRunning():self.status.setText('Запрос выполняется; дождитесь завершения.');event.ignore()
-        else:
-            self.closing=True
-            self.persist_view()
-            if self.local_receiver:
-                self.local_receiver.requestInterruption();self.local_receiver.wait(6000)
-            if self.client_process and self.client_process.poll() is None:self.client_process.terminate()
-            if self.stream:
-                self.stream.requestInterruption()
-                if not self.stream.wait(6000):event.ignore();QTimer.singleShot(1000,self.close);return
-            event.accept()
+        recommendations=getattr(self,'recommendation_dialog',None)
+        workers=[self.worker,self.render_worker,self.local_receiver,self.stream,getattr(tracker,'worker',None),getattr(tracker,'calculation_worker',None),getattr(recommendations,'calculation_worker',None)]
+        for worker in workers:
+            if worker and worker.isRunning():worker.requestInterruption()
+        if any(worker and worker.isRunning() for worker in workers):
+            self.status.setText('Завершаю фоновые задачи…');event.ignore();QTimer.singleShot(100,self.close);return
+        self.persist_view()
+        if self.client_process and self.client_process.poll() is None:self.client_process.terminate()
+        event.accept()
 
 def main():
     logging.basicConfig(filename=ROOT/'albioncraft.log',level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s')

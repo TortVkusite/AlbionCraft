@@ -17,7 +17,8 @@ class AdditionalMarketsTests(unittest.TestCase):
         row=normalized_order(self.order())
         self.assertEqual(row[1:7],('T4_MAIN_SWORD@1','Martlock',2,'sell_price_min',23499,3))
         self.assertEqual(normalized_order(self.order(LocationId=7))[2],'Thetford')
-        self.assertIsNone(normalized_order(self.order(LocationId=5003))) # Brecilien is a different market.
+        self.assertEqual(normalized_order(self.order(LocationId=5003))[2],'Brecilien')
+        self.assertIsNone(normalized_order(self.order(LocationId=99999)))
     def test_expired_and_invalid_orders_are_rejected(self):
         self.assertIsNone(normalized_order(self.order(Amount=0)))
         self.assertIsNone(normalized_order(self.order(Expires='2000-01-01T00:00:00Z')))

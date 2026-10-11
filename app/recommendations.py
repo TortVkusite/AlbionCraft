@@ -19,9 +19,9 @@ def build_recommendations(rows,settings):
     for row in rows:
         recipe=row['recipe'];q=row.get('quality',1)
         observations=[dict(item_id=p['ingredient'].item_id,city=row['buy'],quality=p.get('quality',q if row.get('activity') in ('resale','flip','enchant') else 1),
-            price=p['price'],date=p['date'],source=p.get('source','Europe API'),status=p['status'],role='Покупка' if row.get('activity') in ('resale','flip') else 'Компонент') for p in row['parts']]
+            price=p['price'],date=p['date'],source=p.get('source',settings.get('region_label','Europe')+' API'),status=p['status'],role='Покупка' if row.get('activity') in ('resale','flip') else 'Компонент') for p in row['parts']]
         observations.append(dict(item_id=recipe.item_id,city=row['sell'],quality=q,price=row['sale'],date=row['sale_date'],
-            source=row.get('sale_source','Europe API'),status=row['sale_status'],role='Продажа' if row.get('activity') in ('resale','flip') else 'Результат'))
+            source=row.get('sale_source',settings.get('region_label','Europe')+' API'),status=row['sale_status'],role='Продажа' if row.get('activity') in ('resale','flip') else 'Результат'))
         for p in observations:
             key=(p['item_id'],p['city'],p['quality'],p['role'])
             if key not in items:items[key]=dict(p,used_by=set())

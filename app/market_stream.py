@@ -1,4 +1,4 @@
-"""Optional public Europe NATS observations, independent of REST fetch lifecycle."""
+"""Optional regional NATS observations, independent of REST fetch lifecycle."""
 import json
 import socket
 import time
@@ -6,9 +6,10 @@ from datetime import datetime,timezone,timedelta
 from PySide6.QtCore import QThread,Signal
 from .cache import Cache
 from .item_ids import market_item_id
+from .regions import REGIONS,region_key
 
 LOCATIONS={'1002':'Lymhurst','2004':'Bridgewatch','3008':'Martlock',
-    '4002':'Fort Sterling','0007':'Thetford','7':'Thetford','3005':'Caerleon'}
+    '4002':'Fort Sterling','0007':'Thetford','7':'Thetford','3005':'Caerleon','5003':'Brecilien'}
 
 def normalized_order(data,now=None):
     now=now or datetime.now(timezone.utc)
@@ -40,17 +41,17 @@ def supplement(primary,observed):
 class OrderStream(QThread):
     status=Signal(str)
     updated=Signal()
-    def __init__(self,path,ids):
-        super().__init__();self.path=path;self.ids=set(ids);self.total=0
+    def __init__(self,path,ids,region='europe'):
+        super().__init__();self.path=path;self.ids=set(ids);self.total=0;self.region=region_key(region)
     def run(self):
         cache=Cache(self.path);pending=[];backoff=2
         try:
             while not self.isInterruptionRequested():
                 try:
                     self.status.emit('NATS: подключение…')
-                    with socket.create_connection(('nats.albion-online-data.com',34222),timeout=5) as sock:
+                    with socket.create_connection(('nats.albion-online-data.com',REGIONS[self.region]['port']),timeout=5) as sock:
                         sock.settimeout(1)
-                        payload=json.dumps({'verbose':False,'user':'public','pass':'thenewalbiondata','name':'AlbionCraft-Europe'})
+                        payload=json.dumps({'verbose':False,'user':'public','pass':'thenewalbiondata','name':'AlbionCraft-'+REGIONS[self.region]['label']})
                         sock.sendall(('CONNECT '+payload+'\r\nSUB marketorders.deduped 1\r\nPING\r\n').encode())
                         buffer=b'';size=None;flush=time.monotonic();ping=flush;backoff=2
                         while not self.isInterruptionRequested():

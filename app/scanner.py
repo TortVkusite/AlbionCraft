@@ -43,7 +43,7 @@ def scan(recipes, prices, histories, buy_cities, craft_cities, sell_cities, sett
                 q=quality if i.preserve_quality or (activity=='enchant' and i.item_id==recipe.base_id) else 1
                 p=index.get((i.item_id,buy_city,q),{})
                 value,age,status=quote(p,'sell_price_min',age_limit)
-                source=p.get('sell_price_min_source','Europe API')
+                source=p.get('sell_price_min_source',settings.get('region_label','Europe')+' API')
                 if source.startswith('Из твоей игры'):issues.append(item_name(i.item_id)+': '+source+'; просмотренные ордера не гарантируют полный рынок')
                 parts.append(dict(ingredient=i,quality=q,price=value,age=age,status=status,date=p.get('sell_price_min_date'),source=source,nats=p.get('nats_observations'),local=p.get('local_observations')))
                 if source.startswith('AODP NATS'):issues.append(item_name(i.item_id)+': наблюдавшийся ордер NATS; полнота рынка не гарантирована')
@@ -72,7 +72,7 @@ def scan(recipes, prices, histories, buy_cities, craft_cities, sell_cities, sett
                     value,sale_age,status=quote(p,side,age_limit)
                     row_issues=list(issues)
                     if general and not specific:row_issues.append('Общий профиль RRR / станции: проверьте соответствие рецепту')
-                    sale_source=p.get(side+'_source','Europe API')
+                    sale_source=p.get(side+'_source',settings.get('region_label','Europe')+' API')
                     if sale_source.startswith('Из твоей игры'):row_issues.append('Продажа: '+sale_source+'; доступность ордера требует проверки')
                     if sale_source.startswith('AODP NATS'):row_issues.append('Продажа: наблюдавшийся ордер NATS; полнота рынка не гарантирована')
                     if sale_source=='Последняя сохранённая котировка':row_issues.append('Продажа: последняя сохранённая котировка')

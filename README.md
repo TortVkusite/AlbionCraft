@@ -1,9 +1,9 @@
-<p align="center"><img src="docs/banner.svg" alt="AlbionCraft — ходки, прибыль и рынок Albion Online Europe" width="100%"></p>
+<p align="center"><img src="docs/banner.svg" alt="AlbionCraft — ходки, прибыль и рынок Albion Online" width="100%"></p>
 
-<p align="center"><b>Помощник для рынка, переработки и прогресса в Albion Online</b><br>Windows x64 · Europe · Русский / English · Beta</p>
+<p align="center"><b>Помощник для рынка, переработки и прогресса в Albion Online</b><br>Windows x64 · Europe / Americas / Asia · Русский / English · Beta</p>
 
 <p align="center">
-<a href="https://github.com/TortVkusite/AlbionCraft/releases/tag/v0.2.1"><img src="https://img.shields.io/badge/release-0.2.1%20beta-blue" alt="0.2.1 beta"></a>
+<a href="https://github.com/TortVkusite/AlbionCraft/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/release-0.3.0%20beta-blue" alt="0.3.0 beta"></a>
 <a href="https://github.com/TortVkusite/AlbionCraft/actions/workflows/test.yml"><img src="https://github.com/TortVkusite/AlbionCraft/actions/workflows/test.yml/badge.svg" alt="Tests"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT"></a>
 </p>
@@ -12,7 +12,7 @@ AlbionCraft помогает выбрать выгодные предметы и
 сколько привезти, что переработать и где продать. Сравнивай прибыль в серебре
 или ROI, учитывай фокус, тариф станции, уже купленные партии и запасы на базе.
 
-**Начать:** [скачай Windows-сборку](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.2.1/AlbionCraft-0.2.1-windows-x64.zip), распакуй её целиком и
+**Начать:** [скачай Windows-сборку](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.3.0/AlbionCraft-0.3.0-windows-x64.zip), распакуй её целиком и
 запусти `AlbionCraft.exe`. Python устанавливать не нужно.
 [Все релизы](https://github.com/TortVkusite/AlbionCraft/releases) ·
 [Первые шаги](docs/QUICK_START.md) · [Подробная инструкция](USER_GUIDE.md) ·
@@ -41,6 +41,15 @@ AlbionCraft помогает выбрать выгодные предметы и
 [English quick start](docs/QUICK_START_EN.md).
 
 ## Как устроены данные
+
+Сервер выбирается в главном окне: **Europe / Americas / Asia**. Цены, заказы,
+запасы и прогресс хранятся отдельно; старый профиль Europe остаётся на месте.
+Доступен Brecilien. Для межгородского сравнения он включается отдельной галочкой:
+доступ и расходы перевозки учитывай в своём сценарии.
+
+Большие расчёты выполняются в фоне, таблицы заполняются порциями. В дереве броня
+разделена по материалу и части экипировки; карточка предмета загружается при выборе.
+Сортировка и подбор используют весь выбранный набор, включая строки вне текущей страницы.
 
 Публичные цены и история приходят из [Albion Online Data Project](https://www.albion-online-data.com/).
 Необязательный локальный клиент дополняет их наблюдениями из игры: открой нужные

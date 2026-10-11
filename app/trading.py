@@ -9,8 +9,9 @@ from .rules import effective_settings
 NEIGHBORS={'Thetford':{'Fort Sterling','Martlock'},'Fort Sterling':{'Thetford','Lymhurst'},
     'Lymhurst':{'Fort Sterling','Bridgewatch'},'Bridgewatch':{'Lymhurst','Martlock'},'Martlock':{'Bridgewatch','Thetford'}}
 
-def allowed_route(buy,sell,caerleon=False):
+def allowed_route(buy,sell,caerleon=False,brecilien=False):
     if buy==sell:return False
+    if 'Brecilien' in (buy,sell):return brecilien
     if 'Caerleon' in (buy,sell):return caerleon
     return sell in NEIGHBORS.get(buy,set())
 
@@ -57,7 +58,7 @@ def trading_scan(recipes,prices,histories,buy_cities,sell_cities,settings,qualit
             for sell_city in sell_cities:
                 if activity=='flip' and buy_city!=sell_city:continue
                 if activity=='resale' and buy_city==sell_city:continue
-                if activity=='resale' and settings.get('nearby_only',False) and not allowed_route(buy_city,sell_city,settings.get('include_caerleon',False)):continue
+                if activity=='resale' and settings.get('nearby_only',False) and not allowed_route(buy_city,sell_city,settings.get('include_caerleon',False),settings.get('include_brecilien',False)):continue
                 bp=index.get((r.item_id,buy_city,quality),{});sp=index.get((r.item_id,sell_city,quality),{})
                 bv,ba,bs=quote(bp,buy_side,age_limit);sv,sa,ss=quote(sp,sell_side,age_limit)
                 reasons=[];issues=[];x=None
@@ -75,11 +76,11 @@ def trading_scan(recipes,prices,histories,buy_cities,sell_cities,settings,qualit
                 if activity=='resale':issues.append('Расходы транспорта включены только в указанные прочие расходы')
                 d=demand(hist.get((r.item_id,sell_city,quality),[]))
                 if d['kind']=='unknown':issues.append('Нет истории за 7 дней')
-                part=dict(ingredient=Ingredient(r.item_id,1,False),price=bv,age=ba,status=bs,date=bp.get(buy_side+'_date'),source=bp.get(buy_side+'_source','Europe API'),side=buy_side,nats=bp.get('nats_observations'),local=bp.get('local_observations'))
+                part=dict(ingredient=Ingredient(r.item_id,1,False),price=bv,age=ba,status=bs,date=bp.get(buy_side+'_date'),source=bp.get(buy_side+'_source',settings.get('region_label','Europe')+' API'),side=buy_side,nats=bp.get('nats_observations'),local=bp.get('local_observations'))
                 if part['source'].startswith('Из твоей игры') or sp.get(sell_side+'_source','').startswith('Из твоей игры'):issues.append('Получено из твоей игры: только просмотренные ордера; исполнение и полнота рынка не гарантированы')
                 if part['source'].startswith('AODP NATS') or sp.get(sell_side+'_source','').startswith('AODP NATS'):issues.append('Наблюдавшиеся ордера NATS; полнота рынка не гарантирована')
                 result.append(dict(recipe=r,buy=buy_city,craft='—',sell=sell_city,parts=[part],sale=sv,sale_date=sp.get(sell_side+'_date'),sale_side=sell_side,sale_status=ss,
-                    sale_source=sp.get(sell_side+'_source','Europe API'),sale_nats=sp.get('nats_observations'),base=x,focus=None,color=classify(x['roi'],x['roi']) if x else 'unknown',
+                    sale_source=sp.get(sell_side+'_source',settings.get('region_label','Europe')+' API'),sale_nats=sp.get('nats_observations'),base=x,focus=None,color=classify(x['roi'],x['roi']) if x else 'unknown',
                     demand=d,issues=issues,reasons=reasons,profile={},age=max(v for v in (ba,sa) if v is not None) if ba is not None or sa is not None else None,
                     activity=activity,gross_margin=D(sv-bv) if sv is not None and bv is not None else None,
                     pending_costs=pending,purchase_cost=D(bv) if bv is not None else None,purchase_complete=bv is not None,sale_local=sp.get('local_observations')))

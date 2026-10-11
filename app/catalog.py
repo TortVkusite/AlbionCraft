@@ -6,13 +6,20 @@ from pathlib import Path
 from .models import Ingredient, Recipe
 from .rules import rules
 from .i18n import game_locale
+from functools import lru_cache
 
 def many(value):
     return value if isinstance(value, list) else [value] if isinstance(value, dict) else []
 
 def load_catalog(root: Path):
     from .paths import catalog_root
-    root = catalog_root(root)
+    root = catalog_root(root).resolve()
+    files=[root/'research/items.json',root/'research/names.json']
+    stamps=tuple((p.stat().st_mtime_ns,p.stat().st_size) if p.exists() else None for p in files)
+    return list(_load_catalog(root,game_locale(),stamps))
+
+@lru_cache(maxsize=4)
+def _load_catalog(root,locale,stamps):
     data = json.loads((root / 'research/items.json').read_text(encoding='utf-8-sig'))['items']
     values={}
     for entries in data.values():
@@ -25,11 +32,12 @@ def load_catalog(root: Path):
     if names_file.exists():
         for entry in json.loads(names_file.read_text(encoding='utf-8-sig')):
             loc = entry.get('LocalizedNames') or {}
-            names[entry['UniqueName']] = loc.get(game_locale()) or loc.get('EN-US') or entry['UniqueName']
+            names[entry['UniqueName']] = loc.get(locale) or loc.get('EN-US') or entry['UniqueName']
     recipes = []
     nutrition_by_output={}
     for group in ('weapon', 'equipmentitem', 'transformationweapon', 'simpleitem', 'consumableitem', 'farmableitem'):
         for item in many(data.get(group)):
+            first_recipe=len(recipes)
             uid = item.get('@uniquename', '')
             if item.get('@showinmarketplace') == 'false' or item.get('@tier') not in tuple(str(n) for n in range(1,9)):
                 continue
@@ -83,7 +91,7 @@ def load_catalog(root: Path):
                         logging.exception('Rejected recipe %s variant %s', full_id, variant)
             # Enchant ordinary crafted gear step by step only when every step is in the dump.
             if max_quality==1:continue
-            base_recipes=[r for r in recipes if r.item_id==uid and r.path=='Прямой крафт']
+            base_recipes=[r for r in recipes[first_recipe:] if r.item_id==uid and r.path=='Прямой крафт']
             upgrades=[]
             for ench in sorted(many((item.get('enchantments') or {}).get('enchantment')),key=lambda e:int(e['@enchantmentlevel'])):
                 level=int(ench['@enchantmentlevel'])
@@ -101,4 +109,4 @@ def load_catalog(root: Path):
                     recipes.append(replace(base,item_id=full_id,name=names.get(full_id,base.name),enchantment=level,
                         path='Крафт .0 → .'+str(level),ingredients=base.ingredients+tuple(extra),
                         recipe_silver=base.recipe_silver+sum(int(s.get('@silver','0')) for s in upgrades)))
-    return recipes
+    return tuple(recipes)

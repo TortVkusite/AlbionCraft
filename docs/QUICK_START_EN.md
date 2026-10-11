@@ -2,7 +2,7 @@
 
 1. Extract the **entire** Windows ZIP into a new folder and run `AlbionCraft.exe`.
 2. Choose **Language / Язык → English**. Your choice is saved automatically.
-3. Select a city, item family, tiers, enchantments and quality. Click **Update prices**.
+3. Select the server (Europe / Americas / Asia), city, item family, tiers, enchantments and quality. Click **Update prices**. Profiles are separate per server; your game server must match.
 4. Check the age and source of quotes. **Unknown** means missing information;
    **≤** marks an upper bound before unknown expenses.
 5. Open **Haul planner**, choose buying and refining cities, available carry weight,

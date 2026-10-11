@@ -15,6 +15,7 @@ from .models import quote
 from .number_fields import NumberBox
 from .i18n import tr
 from .ui_layout import FlowLayout,explanation,readable_table,compact_combos,fit_window
+from .responsive import GuiBatch,set_choices
 
 
 class ChoiceBox(QComboBox):
@@ -72,6 +73,7 @@ class StockDialog(QDialog):
         self.store=StockStore(self.root/'player.sqlite');self.worker=None;self.region=None;self.capture_screen=None
         self.last_hash=None;self.closed=False;self.preview=[];self.pending_signature=None;self.applied_signature=None;self.owner=parent.owner;self.dirty=False
         self.capture_revision=0
+        self.paint_batch=GuiBatch(self);self.paint_batch.finished.connect(self.rows_loaded);self.loading=False
         self.ids=sorted({r.item_id for r in recipes}|{i.item_id for r in recipes for i in r.ingredients})
         self.setWindowTitle('Запасы для ходки — банк и уже купленное');self.resize(1190,700)
         body=QVBoxLayout(self)
@@ -101,6 +103,7 @@ class StockDialog(QDialog):
         add=QPushButton('Добавить вручную');actions.addWidget(add);add.clicked.connect(self.add_row)
         remove=QPushButton('Удалить выбранные');actions.addWidget(remove);remove.clicked.connect(self.remove_rows)
         save=QPushButton('Сохранить правки');actions.addWidget(save);save.clicked.connect(self.save_rows)
+        self.edit_buttons=[add,remove,save]
         self.apply=QPushButton('Применить прочитанный снимок');actions.addWidget(self.apply);self.apply.setEnabled(False);self.apply.clicked.connect(self.apply_preview)
         self.status=QLabel('Выдели только полные ячейки банка. Чтение распознаёт ресурсы для переработки; сомнительные ячейки пропускаются.');self.status.setWordWrap(True);body.addWidget(self.status)
         explanation(body,'Для каждого банка / вкладки укажи своё имя контейнера. Начинай новый снимок сверху, затем прокручивай с перекрытием минимум двух строк с разными ресурсами: ячейки объединяются по позиции. При неоднозначном совпадении укажи первую строку вручную. После сортировки или перемещения предметов начни снимок заново. «Просмотрен полностью» подтверждай только после чтения от верха до низа. Авточтение работает в этом окне, пока игра на переднем плане.','Как прочитать весь банк')
@@ -145,12 +148,23 @@ class StockDialog(QDialog):
         self.dirty=True
         if self.auto.isChecked():self.auto.setChecked(False);self.status.setText('Авточтение приостановлено. Сохрани правки перед следующим чтением.')
     def paint_rows(self):
+        self.paint_batch.cancel();self.loading=True;self.table.setEnabled(False)
+        for button in self.edit_buttons:button.setEnabled(False)
+        rows=self.create_rows()
+        if len(self.rows)>50:self.paint_batch.start(rows)
+        else:
+            for _ in rows:pass
+            self.rows_loaded()
+    def rows_loaded(self):
+        self.loading=False;self.table.blockSignals(False);self.table.setEnabled(True)
+        for button in self.edit_buttons:button.setEnabled(True)
+    def create_rows(self):
+        entries=[(item_name(value,False)+f' [{value}]',value) for value in self.ids]
         self.table.blockSignals(True)
-        self.table.setRowCount(len(self.rows))
+        self.table.setRowCount(0);self.table.setRowCount(len(self.rows))
         for n,row in enumerate(self.rows):
             uid=ChoiceBox();uid.setEditable(True)
-            for value in self.ids:
-                uid.addItem(item_name(value,False),value);uid.setItemData(uid.count()-1,value,Qt.ToolTipRole)
+            set_choices(uid,entries)
             uid.setCurrentIndex(uid.findData(row['item_id']));self.table.setCellWidget(n,0,uid)
             uid.lineEdit().setCursorPosition(0);uid.setToolTip(item_name(row['item_id'],False)+'\n'+row['item_id'])
             uid.currentIndexChanged.connect(self.mark_dirty);uid.lineEdit().textEdited.connect(self.mark_dirty)
@@ -162,11 +176,13 @@ class StockDialog(QDialog):
                 if c>3:cell.setFlags(Qt.ItemIsEnabled|Qt.ItemIsSelectable)
                 cell.setToolTip(row.get('observed',''));self.table.setItem(n,c,cell)
                 if c==3 and row.get('valuation_estimated'):cell.setForeground(QColor('#e9bd6c'));cell.setToolTip('Сохранённая рыночная оценка при чтении, не фактическая цена покупки. Она не меняется вслед за рынком.')
+            yield
         for col,width in enumerate([300,180,110,110,250]):self.table.setColumnWidth(col,width)
         self.table.blockSignals(False)
     def reload(self):
         self.rows=[r for r in self.store.rows(self.player) if (r.get('kind')=='base' and r['city']==self.craft) or (r.get('kind')=='bought' and r['city']==self.buy)];self.paint_rows()
     def save_rows(self):
+        if self.loading:self.status.setText('Список ещё загружается. Дождись завершения.');return False
         try:
             values=[]
             current={(r['city'],r['key']):r for r in self.store.rows(self.player)}
@@ -180,9 +196,7 @@ class StockDialog(QDialog):
                 if qty<0 or price is not None and (not price.is_finite() or price<0):raise ValueError('Количество и цена должны быть неотрицательными')
                 estimated=bool(row.get('valuation_estimated') and price is not None and str(price)==str(row.get('price')))
                 values.append((row,dict(row,item_id=uid,quantity=qty,price=str(price) if price is not None else None,city=city,kind=kind,valuation_estimated=estimated)))
-            for old,value in values:
-                if old['city']!=value['city']:self.store.delete(self.player,old['city'],old['key'])
-                self.store.put(self.player,value['city'],value['key'],value)
+            self.store.save_edits(self.player,values)
             self.reload();self.dirty=False;self.signature=repr(self.store.rows(self.player));self.changed.emit();self.status.setText('Запасы сохранены. Пересчитай ходку.');return True
         except (ValueError,ArithmeticError) as exc:self.status.setText('Правки не сохранены: '+str(exc));return False
     def remove_rows(self):
@@ -214,6 +228,7 @@ class StockDialog(QDialog):
             self.character.setEnabled(not enabled);self.status.setText('Новые завершённые покупки будут добавляться после чтения подтверждающего письма.' if enabled else 'Наблюдение за покупками выключено.')
         except ValueError as exc:self.watch.blockSignals(True);self.watch.setChecked(False);self.watch.blockSignals(False);self.status.setText(str(exc))
     def tick(self):
+        if self.loading:return
         signature=repr(self.store.rows(self.player))
         if signature!=self.signature:
             if not self.dirty and self.table.state()!=QAbstractItemView.EditingState:self.signature=signature;self.reload();self.changed.emit()
@@ -221,9 +236,10 @@ class StockDialog(QDialog):
             im=self.capture_screen.grabWindow(0,self.region.x(),self.region.y(),self.region.width(),self.region.height()).toImage()
             self.read_image(im,True)
     def read_image(self,image,automatic=False):
-        if self.worker and self.worker.isRunning():return
+        if self.loading or self.worker and self.worker.isRunning():return
         if self.dirty and not self.save_rows():return
-        templates={u:QImage(str(self.root/'icons'/(u+'__1.png'))) for u in self.ids if (self.root/'icons'/(u+'__1.png')).exists()}
+        icon_root=getattr(getattr(self.owner,'icons',None),'root',self.root/'icons')
+        templates={u:QImage(str(icon_root/(u+'__1.png'))) for u in self.ids if (icon_root/(u+'__1.png')).exists()}
         if len(templates)!=len(self.ids):
             if hasattr(self.owner,'icons'):
                 for uid in self.ids:
@@ -268,7 +284,7 @@ class StockDialog(QDialog):
         self.status.setText(f'Контейнер «{self.capture_container}»: область с строки {offset//self.capture_columns+1}, ресурсов в этой области {len(self.preview)}. Всего просмотрено ячеек: {len(state["slots"])}; снимок частичный. Для купленного проверь цены.')
     def done(self,result):
         if self.worker and self.worker.isRunning():self.status.setText('Дождись завершения чтения.');return
-        if not self.closed:self.timer.stop();self.store.close();self.closed=True
+        if not self.closed:self.timer.stop();self.paint_batch.cancel();self.store.close();self.closed=True
         super().done(result)
     def closeEvent(self,event):
         if self.worker and self.worker.isRunning():event.ignore();return

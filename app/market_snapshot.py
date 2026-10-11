@@ -28,9 +28,14 @@ def market_snapshot(owner,root,ids):
                 chunk=list(ids)[n:n+400];marks=','.join('?' for _ in chunk)
                 for payload, in db.execute('SELECT payload FROM observations WHERE item IN ('+marks+')',chunk):
                     p=json.loads(payload);prices[(p['item_id'],p['city'],p['quality'])]=p
-            for key,payload in db.execute("SELECT cache_key,payload FROM requests WHERE cache_key LIKE '%history_item_all%' ORDER BY fetched"):
-                if json.loads(key)[1] not in ids:continue
-                for h in json.loads(payload):histories[(h['item_id'],h['location'],h['quality'])]=h
+            # Use the cache-key index and decode one latest response per selected
+            # item. Reading every historical request grows with months of usage.
+            for uid in ids:
+                prefix=json.dumps(['history_item_all',uid])[:-1]+','
+                record=db.execute('SELECT payload FROM requests WHERE cache_key>=? AND cache_key<? ORDER BY fetched DESC,id DESC LIMIT 1',
+                    (prefix,prefix+'\uffff')).fetchone()
+                if record:
+                    for h in json.loads(record[0]):histories[(h['item_id'],h['location'],h['quality'])]=h
         finally:db.close()
     if owner.last:
         for p in owner.last['prices']:

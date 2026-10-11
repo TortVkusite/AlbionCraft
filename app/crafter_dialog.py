@@ -9,8 +9,12 @@ from .formatting import money,timestamp
 from .ui_layout import FlowLayout,compact_combos,readable_table,fit_window
 from .number_fields import NumberBox,LargeNumberBox
 
-@lru_cache(maxsize=1)
-def progression(root):return GameProgression(Path(root))
+def progression(root):
+    from .paths import catalog_root
+    return _progression(str(catalog_root(root).resolve()))
+
+@lru_cache(maxsize=2)
+def _progression(root):return GameProgression(Path(root))
 
 class CrafterDialog(QDialog):
     def __init__(self,parent,root,recipes,row=None):

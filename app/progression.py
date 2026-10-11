@@ -3,6 +3,7 @@ from pathlib import Path
 from fnmatch import fnmatchcase
 from datetime import datetime,timezone
 from .catalog import many
+from functools import lru_cache
 
 def advance(level,progress,fame,costs):
     if level<0 or level>len(costs) or progress<0 or fame<0 or not math.isfinite(progress) or not math.isfinite(fame):raise ValueError('Некорректный опыт')
@@ -25,14 +26,17 @@ class GameProgression:
         for group in json.loads((self.root/'research/items.json').read_text(encoding='utf-8-sig'))['items'].values():
             for item in many(group):
                 if item.get('@uniquename'):self.items[item['@uniquename']]=item
+    @lru_cache(maxsize=4096)
     def costs(self,node):
         n=self.nodes[node];template=self.templates[n['@usetemplate']]
         factor=float(n.get('@famemultiplier',1))
         return [round(float(line.strip().split(';')[0])*factor) for line in template['baselevels']['#text'].splitlines() if line.strip()][:100]
+    @lru_cache(maxsize=8192)
     def matching(self,uid,kind):
         base=uid.split('@')[0]
         return [key for key,n in self.nodes.items() if key.startswith(kind+'_') and n['@usetemplate'] in (kind+'_BASE',kind+'_SPEC')
             and any(fnmatchcase(base,p['@pattern']) for p in many((n.get('itemlist') or {}).get('itempattern')))]
+    @lru_cache(maxsize=8192)
     def focus_coefficients(self,uid):
         base=uid.split('@')[0];result={};tier=int(base.split('_')[0][1:])
         for key,node in self.nodes.items():

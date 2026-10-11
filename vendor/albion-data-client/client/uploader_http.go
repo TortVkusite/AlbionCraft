@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/ao-data/albiondata-client/log"
@@ -41,6 +42,10 @@ func (u *httpUploader) sendToIngest(body []byte, topic string, state *albionStat
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	if state != nil {
+		serverID, _ := state.GetServer()
+		req.Header.Set("X-Albion-Server", strconv.Itoa(serverID))
+	}
 
 	resp, err := u.client.Do(req)
 	if err != nil {

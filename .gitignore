@@ -1,5 +1,7 @@
 # Personal data, local observations and credentials
 settings.json
+app_preferences.json
+servers/
 *.sqlite*
 *.db*
 *.log*

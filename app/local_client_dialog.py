@@ -8,11 +8,11 @@ from .ui_layout import fit_window
 
 class ClientDialog(QDialog):
     def __init__(self,parent):
-        super().__init__(parent);self.parent_window=parent;self.setWindowTitle('Цены из твоей игры — Europe');self.resize(760,480)
+        super().__init__(parent);self.parent_window=parent;self.setWindowTitle('Цены из твоей игры — '+getattr(parent,'region_label','Europe'));self.resize(760,480)
         layout=QVBoxLayout(self)
         self.setup_worker=None
         self.auto_setup=QPushButton('Установить всё и подключить');self.auto_setup.setStyleSheet('background:#315b83;font-weight:bold;padding:12px;');layout.addWidget(self.auto_setup);self.auto_setup.clicked.connect(self.install_all)
-        text=QLabel('Запусти Albion Data Client вместе с AlbionCraft и Albion Online (Europe).\n'
+        text=QLabel('Запусти Albion Data Client вместе с AlbionCraft и Albion Online.\n'
             'Открывай рынок, предложения продажи и заказы покупки нужных предметов и ресурсов.\n'
             'Приложение пересчитает прибыль по новым наблюдениям. Видимые страницы — неполный рынок.\n'
             'Время получения подтверждает наблюдение, но не гарантирует, что ордер ещё доступен.\n'
@@ -20,6 +20,7 @@ class ClientDialog(QDialog):
             'Для своих заказов открой в игре вкладку собственных покупок и продаж. Полученные страницы попадут в «Мои заказы».\n'
             'Подтверждённое создание и отмена обновляют конкретный заказ. Чтение письма рынка может закрыть однозначно найденный заказ.\n'
             'Цены и собственные заказы передаются только на этот компьютер.');text.setWordWrap(True);layout.addWidget(text)
+        text.setText(text.text()+'\n'+getattr(parent,'region_label','Europe')+' — сервер в игре должен совпадать с выбранным в приложении.')
         self.path=QLineEdit(parent.settings.get('data_client_path',''))
         enhanced=resource_root()/'tools'/'albion-data-client'/'albioncraft-data-client.exe'
         if enhanced.is_file():self.path.setText(str(enhanced))

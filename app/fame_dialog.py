@@ -1,6 +1,6 @@
 import json,subprocess,sys,os,tempfile
 from pathlib import Path
-from PySide6.QtCore import QThread,Signal
+from PySide6.QtCore import QThread,Signal,QTimer
 from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,QLineEdit,QPushButton,QDoubleSpinBox,QCheckBox,QTableWidget,QTableWidgetItem,QAbstractItemView,QMessageBox)
 from .ui_layout import FlowLayout,explanation,readable_table,compact_combos,fit_window
 from .crafter_dialog import progression
@@ -12,22 +12,11 @@ from .item_names import item_name
 from .formatting import money
 from .number_fields import LargeNumberBox
 
-class FameWorker(QThread):
-    ready=Signal(object);failed=Signal(str)
-    def __init__(self,groups,budget):super().__init__();self.groups=groups;self.budget=budget
-    def run(self):
-        try:
-            flags=subprocess.CREATE_NO_WINDOW if sys.platform=='win32' else 0
-            from .paths import resource_root
-            with tempfile.TemporaryDirectory(prefix='albioncraft-fame-') as folder:
-                request=Path(folder)/'request.json';response=Path(folder)/'response.json'
-                request.write_text(json.dumps(dict(groups=self.groups,budget=self.budget)),encoding='utf-8')
-                command=[sys.executable] if getattr(sys,'frozen',False) else [sys.executable,'-m','app.entry']
-                completed=subprocess.run(command+['--fame-worker',str(request),str(response)],cwd=str(resource_root()),creationflags=flags,timeout=35,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-                result=json.loads(response.read_text(encoding='utf-8')) if response.is_file() else {}
-                if completed.returncode or 'error' in result:raise ValueError('Решатель не завершился. Профиль не изменён. '+result.get('error',''))
-                self.ready.emit(result)
-        except Exception as exc:self.failed.emit(str(exc))
+from .background import ProcessWorker
+
+class FameWorker(ProcessWorker):
+    def __init__(self,groups,budget):super().__init__('fame',dict(groups=groups,budget=budget),timeout=35)
+
 
 class FameDialog(QDialog):
     def __init__(self,parent,root,recipes,branch=None):
@@ -53,6 +42,7 @@ class FameDialog(QDialog):
         self.profile_note=QLabel();self.profile_note.setWordWrap(True);layout.addWidget(self.profile_note)
         actions=QHBoxLayout();layout.addLayout(actions)
         self.calculate_button=QPushButton('Рассчитать');self.calculate_button.clicked.connect(self.calculate);actions.addWidget(self.calculate_button)
+        self.cancel_button=QPushButton('Отмена');self.cancel_button.setEnabled(False);self.cancel_button.clicked.connect(self.cancel_calculation);actions.addWidget(self.cancel_button)
         self.record_button=QPushButton('Распределение выполнено — записать в профиль');self.record_button.setEnabled(False);self.record_button.clicked.connect(self.record);actions.addWidget(self.record_button)
         self.table=QTableWidget(0,7);self.table.setHorizontalHeaderLabels(['Узел','Сейчас','После','Вложить свободки','Получить XP','Прирост','XP внутри уровня']);self.table.setEditTriggers(QAbstractItemView.NoEditTriggers);self.table.verticalHeader().hide();self.table.horizontalHeader().setStretchLastSection(True);layout.addWidget(self.table,1)
         self.summary=QLabel('Расчёт использует сохранённый профиль.');self.summary.setWordWrap(True);layout.addWidget(self.summary)
@@ -94,9 +84,13 @@ class FameDialog(QDialog):
             if mode=='level':self.received(plan(self.game,branch,states,uid,budget,mode));return
             self.calculate_button.setEnabled(False)
             for control in (self.branch,self.item,self.tier,self.player,self.budget,self.mode,self.mastery):control.setEnabled(False)
-            self.summary.setText('Подбираю целые уровни под запас свободной славы…');self.worker=FameWorker(groups,budget);self.worker.ready.connect(self.received);self.worker.failed.connect(self.failed);self.worker.finished.connect(self.worker_finished);self.worker.start()
+            self.cancel_button.setEnabled(True);self.summary.setText('Подбираю целые уровни под запас свободной славы…');self.worker=FameWorker(groups,budget);self.worker.ready.connect(self.received);self.worker.failed.connect(self.failed);self.worker.finished.connect(self.worker_finished);self.worker.start()
         except Exception as exc:self.failed(str(exc))
+    def cancel_calculation(self):
+        if self.worker and self.worker.isRunning():self.worker.requestInterruption();self.summary.setText('Расчёт отменяется…')
     def worker_finished(self):
+        self.cancel_button.setEnabled(False)
+        if self.worker.isInterruptionRequested():self.summary.setText('Расчёт отменён. Профиль не изменён.')
         self.calculate_button.setEnabled(True)
         for control in (self.branch,self.item,self.tier,self.player,self.budget,self.mode,self.mastery):control.setEnabled(True)
     def failed(self,message):self.summary.setText(message);self.result=None;self.record_button.setEnabled(False)
@@ -126,8 +120,8 @@ class FameDialog(QDialog):
         except ValueError as exc:QMessageBox.warning(self,'Свободная слава',str(exc))
         finally:store.close()
     def reject(self):
-        if self.worker and self.worker.isRunning():return
+        if self.worker and self.worker.isRunning():self.cancel_calculation();QTimer.singleShot(100,self.reject);return
         super().reject()
     def closeEvent(self,event):
-        if self.worker and self.worker.isRunning():event.ignore()
+        if self.worker and self.worker.isRunning():self.reject();event.ignore()
         else:super().closeEvent(event)

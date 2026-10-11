@@ -8,6 +8,7 @@ from .own_orders import OwnOrderStore,order_totals,amount
 from .order_time import remaining_time,utc_time
 from .formatting import money
 from .rules import effective_settings
+from .responsive import GuiBatch
 
 DATA=Qt.UserRole;SORT=Qt.UserRole+1
 STATES={'active':'Активен','finished':'Завершён','cancelled':'Отменён','unconfirmed':'Не проверен'}
@@ -38,9 +39,9 @@ class OwnOrdersDialog(QDialog):
         self.state=QComboBox()
         for text,key in [('Текущие (подтверждённые)','current'),('Все состояния',None),('Активные','active'),('Завершённые','finished'),('Отменённые','cancelled'),('Не проверенные','unconfirmed')]:self.state.addItem(text,key)
         top.addWidget(self.state);self.state.currentIndexChanged.connect(self.totals);top.addStretch()
-        actions=QHBoxLayout();actions.addStretch();layout.addLayout(actions)
+        actions=QHBoxLayout();actions.addStretch();layout.addLayout(actions);self.action_buttons=[]
         for title,action in [('Начать новый снимок',self.new_snapshot),('Добавить заказ',lambda:self.add_order()),('Удалить выбранный',self.remove_order)]:
-            button=QPushButton(title);actions.addWidget(button);button.clicked.connect(action)
+            button=QPushButton(title);actions.addWidget(button);button.clicked.connect(action);self.action_buttons.append(button)
         self.table=QTableWidget(0,9);self.table.setHorizontalHeaderLabels(['Город','Заказ','Предмет','Остаток, шт.','Цена / шт.','Осталось','Сумма','Состояние','Источник / персонаж'])
         self.table.horizontalHeader().setStretchLastSection(True);self.table.verticalHeader().setVisible(False);layout.addWidget(self.table)
         self.table.horizontalHeader().sectionDoubleClicked.connect(self.sort_by)
@@ -49,13 +50,31 @@ class OwnOrdersDialog(QDialog):
         disclaimer=QLabel('Итоги относятся к выбранным фильтрам и полученным заказам. Комиссия размещения уже уплачена. Завершённые и отменённые заказы не входят в текущие суммы. Себестоимость, если была задана раньше, сохраняется.');disclaimer.setWordWrap(True);layout.addWidget(disclaimer)
         buttons=QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel);layout.addWidget(buttons);buttons.accepted.connect(self.save);buttons.rejected.connect(self.reject)
         buttons.button(QDialogButtonBox.Save).setText(tr('Сохранить'));buttons.button(QDialogButtonBox.Cancel).setText(tr('Отмена'))
+        self.save_button=buttons.button(QDialogButtonBox.Save)
+        self.row_batch=GuiBatch(self);self.total_batch=GuiBatch(self)
+        self.row_batch.finished.connect(self.rows_loaded)
         self.reloading=True
-        for order in self.original:self.add_order(order)
-        self.reloading=False
+        if len(self.original)>50:
+            self.table.setEnabled(False);self.save_button.setEnabled(False)
+            for button in self.action_buttons:button.setEnabled(False)
+            self.row_batch.start(self.load_rows(self.original))
+        else:
+            for order in self.original:self.add_order(order)
+            self.reloading=False
         for n,width in enumerate([110,105,285,105,105,120,110,110]):self.table.setColumnWidth(n,width)
         self.totals();self.timer=QTimer(self);self.timer.setInterval(1000);self.timer.timeout.connect(self.reload_captured);self.timer.start()
         readable_table(self.table);self.table.setColumnWidth(2,300)
         compact_combos(self);fit_window(self)
+
+    def load_rows(self,orders):
+        for n,order in enumerate(orders):
+            self.add_order(order)
+            self.capture_note.setText(f'Загружено заказов: {n+1} / {len(orders)}')
+            yield
+    def rows_loaded(self):
+        self.reloading=False;self.table.blockSignals(False);self.table.setEnabled(True);self.save_button.setEnabled(True)
+        for button in self.action_buttons:button.setEnabled(True)
+        self.totals();self.apply_sort()
 
     def cell(self,n,col,text,key=None):
         item=OrderCell(str(text));item.setFlags(item.flags()&~Qt.ItemIsEditable);item.setData(SORT,str(text).casefold() if key is None else key);self.table.setItem(n,col,item);return item
@@ -105,6 +124,8 @@ class OwnOrdersDialog(QDialog):
         if not hasattr(self,'summary') or self.reloading:return
         try:entries=self.entries()
         except (ValueError,AttributeError):self.summary.setText('Проверь суммы в полях цены.');return
+        self.total_batch.start(self.paint_totals(entries))
+    def paint_totals(self,entries):
         visible=[];unconfirmed=[];self.table.blockSignals(True)
         for n,entry in enumerate(entries):
             if entry.get('expires') and utc_time(entry['expires'])<=datetime.now(timezone.utc) and entry['status']=='active':entry['status']='finished'
@@ -120,6 +141,7 @@ class OwnOrdersDialog(QDialog):
             state=self.state.currentData();show=show and (state is None or (entry['status']=='active' if state=='current' else entry['status']==state))
             self.table.setRowHidden(n,not show)
             if show:visible.append(entry)
+            yield
         self.table.blockSignals(False)
         tax=effective_settings(self.parent().settings).get('tax');known_tax=True
         try:x=order_totals(visible,tax)
@@ -142,23 +164,34 @@ class OwnOrdersDialog(QDialog):
 
     def apply_sort(self):
         if self.sort_column is not None:
+            self.total_batch.cancel();self.table.blockSignals(False)
             self.table.horizontalHeader().setSortIndicatorShown(True);self.table.horizontalHeader().setSortIndicator(self.sort_column,self.sort_order);self.table.sortItems(self.sort_column,self.sort_order)
             self.totals()
 
     def reload_captured(self):
+        if self.reloading:return
         version=self.store.version()
-        if version==self.seen_version:self.totals();return
+        if version==self.seen_version:
+            if self.total_batch.pending is None:self.totals()
+            return
+        self.total_batch.cancel();self.table.blockSignals(False)
         new=self.store.orders();auto={tuple(e['auto_key']):e for e in new if e.get('source')=='auto'}
         seed_ids={e['id'] for e in new if e.get('source')!='auto'}
         self.reloading=True;self.table.blockSignals(True)
+        self.table.setEnabled(False);self.save_button.setEnabled(False)
+        for button in self.action_buttons:button.setEnabled(False)
+        self.seen_version=version
+        self.row_batch.start(self.update_rows(auto,seed_ids))
+
+    def update_rows(self,auto,seed_ids):
         for n in reversed(range(self.table.rowCount())):
             record=self.table.item(n,2).data(DATA)
             if record.get('source')=='auto':
                 key=tuple(record['auto_key'])
                 if key in auto:self.update_auto(n,auto.pop(key))
             elif record.get('note','').startswith('Только видимые строки пользовательского скриншота') and record.get('id') not in seed_ids:self.table.removeRow(n)
-        for order in auto.values():self.add_order(order)
-        self.reloading=False;self.table.blockSignals(False);self.seen_version=version;self.totals();self.apply_sort()
+            yield
+        for order in auto.values():self.add_order(order);yield
 
     def edit_expiry(self,n,col):
         if col!=5:return
@@ -177,7 +210,8 @@ class OwnOrdersDialog(QDialog):
 
     def new_snapshot(self):self.store.new_snapshot();self.reload_captured()
     def save(self):
+        if self.reloading:return
         try:self.store.save(self.entries())
         except ValueError as exc:QMessageBox.warning(self,'Заказы',str(exc));return
         self.accept()
-    def done(self,result):self.timer.stop();self.store.close();super().done(result)
+    def done(self,result):self.timer.stop();self.row_batch.cancel();self.total_batch.cancel();self.table.blockSignals(False);self.store.close();super().done(result)

@@ -11,6 +11,7 @@ from .formatting import money,timestamp
 from .filter_dialog import QUALITY_NAMES
 from .market_snapshot import market_snapshot
 from .number_fields import NumberBox
+from .responsive import set_choices
 
 class LoadoutDialog(QDialog):
     def __init__(self,parent,root,build=None):
@@ -33,7 +34,7 @@ class LoadoutDialog(QDialog):
         for n,(key,(label,types)) in enumerate(SLOTS.items()):
             self.table.setItem(n,0,QTableWidgetItem(label));box=QComboBox();box.setEditable(True);box.setInsertPolicy(QComboBox.NoInsert);box.addItem('Не использовать',None)
             bases={family(uid):uid for uid,item in self.game.items.items() if uid.startswith('T4_') and item.get('@slottype') in types and '@itempower' in item and item.get('@shopcategory') in ('weapons','offhands','armors','bags','capes','head','shoes')}
-            for suffix,uid in sorted(bases.items(),key=lambda e:item_name(e[1],False)):box.addItem(item_name(uid,False).split(' (')[0],uid)
+            set_choices(box,[('Не использовать',None)]+[(item_name(uid,False).split(' (')[0],uid) for suffix,uid in sorted(bases.items(),key=lambda e:item_name(e[1],False))])
             box.completer().setCaseSensitivity(Qt.CaseInsensitive);box.completer().setFilterMode(Qt.MatchContains)
             saved=slots.get(key,{})
             imported=(build or {}).get('items',{}).get(key);uid=imported or saved.get('item')

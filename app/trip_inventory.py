@@ -13,13 +13,25 @@ class StockStore:
         self.db.execute('CREATE TABLE IF NOT EXISTS trip_bank_scans (player TEXT,city TEXT,page TEXT,payload TEXT,PRIMARY KEY(player,city,page))');self.db.commit()
     def rows(self,player):
         return [dict(json.loads(p),key=k,city=c) for c,k,p in self.db.execute('SELECT city,key,payload FROM trip_stock WHERE player=? ORDER BY city,key',(player,))]
-    def put(self,player,city,key,row):
+    def prepared(self,row):
         if not re.fullmatch(r'[A-Z0-9_@]+',row['item_id']) or type(row['quantity']) is not int or row['quantity']<0:raise ValueError('Неверный ресурс или количество')
         if row.get('price') is not None:
             price=D(str(row['price']))
             if not price.is_finite() or price<0:raise ValueError('Неверная цена запаса')
-        value=dict(row,observed=datetime.now(timezone.utc).isoformat())
+        return dict(row,observed=datetime.now(timezone.utc).isoformat())
+    def put(self,player,city,key,row):
+        value=self.prepared(row)
         self.db.execute('INSERT OR REPLACE INTO trip_stock VALUES(?,?,?,?)',(player,city,key,json.dumps(value,ensure_ascii=False)));self.db.commit()
+    def save_edits(self,player,edits):
+        # Validate every row before applying any move or replacement. A large
+        # bank is one transaction rather than one disk flush per resource.
+        prepared=[(old,self.prepared(row)) for old,row in edits]
+        with self.db:
+            for old,value in prepared:
+                if old['city']!=value['city']:
+                    self.db.execute('DELETE FROM trip_stock WHERE player=? AND city=? AND key=?',(player,old['city'],old['key']))
+            self.db.executemany('INSERT OR REPLACE INTO trip_stock VALUES(?,?,?,?)',
+                [(player,value['city'],value['key'],json.dumps(value,ensure_ascii=False)) for _,value in prepared])
     def replace_page(self,player,city,page,rows,kind='base'):
         if kind not in ('base','bought'):raise ValueError('Неверный вид запаса')
         if any(type(r.get('quantity')) is not int or r['quantity']<1 or not re.fullmatch(r'[A-Z0-9_@]+',r.get('item_id','')) for r in rows):raise ValueError('Неверные данные снимка')

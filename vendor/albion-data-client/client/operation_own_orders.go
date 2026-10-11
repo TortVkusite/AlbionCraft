@@ -6,6 +6,7 @@ import (
 	"github.com/ao-data/albiondata-client/log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -56,6 +57,8 @@ func sendOwnPayload(state *albionState, payload map[string]interface{}) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	serverID, _ := state.GetServer()
+	req.Header.Set("X-Albion-Server", strconv.Itoa(serverID))
 	response, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
 	if err != nil {
 		log.Warnf("Own orders: local receiver unavailable: %v", err)

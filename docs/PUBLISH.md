@@ -25,7 +25,7 @@ git branch -M main
    Вставь текст из `docs/RELEASE_NOTES.md` и прикрепи Windows ZIP вместе с
    `SHA256SUMS.txt`. Отметь релиз как **pre-release**, пока идут первые внешние проверки.
 5. В настройках About добавь описание:
-   `Windows-помощник для рынка, переработки, ходок и прогресса в Albion Online Europe.`
+   `Windows-помощник для рынка, переработки, ходок и прогресса в Albion Online Europe, Americas и Asia.`
    Подходящие темы: `albion-online`, `crafting`, `market`, `python`, `pyside6`, `windows`.
 6. Для поста используй `docs/POST_RU.md`, добавь ссылку на репозиторий и Releases.
    В Social preview можно поставить собственный баннер `docs/banner.png`.

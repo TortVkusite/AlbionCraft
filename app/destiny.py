@@ -2,6 +2,8 @@
 import re
 from dataclasses import dataclass
 from .item_names import item_name
+from functools import lru_cache
+from .i18n import get_language
 
 RESOURCE={'FIBER':'Волокно / ткань','HIDE':'Шкуры / кожа','ORE':'Руда / слитки','ROCK':'Камень','WOOD':'Древесина','FISH':'Рыболовство'}
 SPECIAL={'FARM_ALCHEMIST':'Алхимия','FARM_COOK':'Кулинария','FARM_ANIMALS':'Животные','FARM_CROPS':'Овощи','FARM_HERBS':'Травы'}
@@ -18,14 +20,23 @@ class Branch:
     root:str|None
     icon:str
     group:str=""
+    section:str=""
 
 def node_name(game,key):
+    return _node_name(game,key,get_language())
+
+@lru_cache(maxsize=8192)
+def _node_name(game,key,language):
     node=game.nodes[key];uid=node.get('@itemforsprite','')
     label=item_name(uid,False).split(' (')[0] if uid else key
     tier=re.search(r'_T([4-8])$',key)
     return f'{label} • T{tier[1]}' if tier else label
 
 def build_branches(game,recipes):
+    return list(_build_branches(game,tuple(recipes),get_language()))
+
+@lru_cache(maxsize=4)
+def _build_branches(game,recipes,language):
     from .main import FAMILIES
     meta={r.item_id.split('@')[0]:r for r in sorted(recipes,key=lambda r:r.enchantment,reverse=True)}
     roots={key for key,n in game.nodes.items() if n['@usetemplate'].endswith('_BASE') or n['@usetemplate'] in ('CRAFT_OFF','COMBAT_OFF','GATHER_FISH')}
@@ -52,5 +63,9 @@ def build_branches(game,recipes):
         nodes.sort(key=lambda n:(n!=root,node_name(game,n)))
         tag=game.nodes[representative].get('@subcategorylocatag','')
         group=next((g for g in GROUP_COLORS if tag.endswith('_'+g)), '')
-        result.append(Branch(key,label,mode,category,nodes,root,uid,group))
+        section=''
+        if category=='Броня':
+            section=next((label for prefix,label in [('CLOTH','Тканевая'),('LEATHER','Кожаная'),('PLATE','Латная')] if prefix in key),'Другие')
+            group=group or {'Тканевая':'MAGE','Кожаная':'HUNTER','Латная':'WARRIOR'}.get(section,'')
+        result.append(Branch(key,label,mode,category,nodes,root,uid,group,section))
     return sorted(result,key=lambda b:(b.mode,b.category,list(GROUP_COLORS).index(b.group) if b.group else 3,b.label))

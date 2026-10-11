@@ -13,6 +13,9 @@ func TestOwnOrdersDecodedWithSideAndSentOnlyLocally(t *testing.T) {
 	defer func() { OwnOrdersURL = old }()
 	var received map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Albion-Server") != "2" {
+			t.Errorf("own orders lost server identity: %q", r.Header.Get("X-Albion-Server"))
+		}
 		d := json.NewDecoder(r.Body)
 		d.UseNumber()
 		d.Decode(&received)
@@ -20,7 +23,7 @@ func TestOwnOrdersDecodedWithSideAndSentOnlyLocally(t *testing.T) {
 	}))
 	defer server.Close()
 	OwnOrdersURL = server.URL
-	state := &albionState{LocationId: "0007", CharacterId: lib.CharacterID("owner"), CharacterName: "Player"}
+	state := &albionState{AODataServerID: 2, LocationId: "0007", CharacterId: lib.CharacterID("owner"), CharacterName: "Player"}
 	for code, side := range map[OperationType]string{opAuctionGetMyOpenOffers: "sell", opAuctionGetMyOpenRequests: "buy", opAuctionGetMyOpenAuctions: "mixed"} {
 		op, err := decodeResponse(map[byte]interface{}{253: uint16(code), 0: []string{`{"Id":9007199254740993,"ItemTypeId":"T3_2H_BOW","Amount":10,"UnitPriceSilver":5150000,"QualityLevel":1,"EnchantmentLevel":0}`}})
 		if err != nil {

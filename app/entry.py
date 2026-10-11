@@ -5,6 +5,9 @@ from pathlib import Path
 
 
 def main():
+    if len(sys.argv) == 4 and sys.argv[1] == '--task-worker':
+        from app.background import child
+        return child(sys.argv[2], sys.argv[3])
     if len(sys.argv) == 4 and sys.argv[1] == '--fame-worker':
         output = Path(sys.argv[3])
         try:

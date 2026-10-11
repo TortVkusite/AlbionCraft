@@ -46,11 +46,11 @@ def prepare_chain(recipes,prices,histories,buy,craft,settings,game,states,age_li
         c.sales={city:dict(price=D(v)) for city in CITIES if (v:=valid(c.recipe.item_id,city,side)) is not None}
         c.row['sale']=valid(c.recipe.item_id,craft,side)
         original=index.get((c.recipe.item_id,craft,1),{})
-        c.row['sale_date']=original.get(side+'_date');c.row['sale_source']=original.get(side+'_source','Europe API')
+        c.row['sale_date']=original.get(side+'_date');c.row['sale_source']=original.get(side+'_source',settings.get('region_label','Europe')+' API')
         for part in c.parts:
             uid=part['ingredient'].item_id;p=index.get((uid,buy,1),{})
             _,age,status=quote(p,'sell_price_min',age_limit)
-            part.update(price=valid(uid,buy,'sell_price_min'),date=p.get('sell_price_min_date'),source=p.get('sell_price_min_source','Europe API'),age=age,status=status)
+            part.update(price=valid(uid,buy,'sell_price_min'),date=p.get('sell_price_min_date'),source=p.get('sell_price_min_source',settings.get('region_label','Europe')+' API'),age=age,status=status)
         c.row['standalone']=c.row['sale'] is not None and all(p['price'] is not None for p in c.parts)
         if not c.row['standalone']:
             c.plain['profit']=D(0)

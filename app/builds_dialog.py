@@ -11,6 +11,8 @@ from .calculator import demand_text
 from .filter_dialog import QUALITY_NAMES
 from .item_names import item_name
 from .ui_layout import FlowLayout,explanation,readable_table,compact_combos,fit_window
+from .background import ProcessWorker
+from .responsive import GuiBatch
 
 
 class BuildFetch(QThread):
@@ -25,6 +27,8 @@ class BuildsDialog(QDialog):
     def __init__(self,parent,root):
         super().__init__(parent);self.owner=parent;self.root=Path(root);self.setWindowTitle('Билды / рынок');self.resize(1420,880)
         self.path=self.root/'builds_grind.json';self.snapshots={};self.rows=[];self.selected=None;self.worker=None;self.signature=None
+        self.calculation_worker=None;self.generation=0;self.paint_batch=GuiBatch(self)
+        self.calculate_timer=QTimer(self);self.calculate_timer.setSingleShot(True);self.calculate_timer.setInterval(180);self.calculate_timer.timeout.connect(self.start_calculation)
         try:self.snapshots=json.loads(self.path.read_text(encoding='utf-8'))
         except (OSError,ValueError):pass
         prefs=parent.settings.get('build_tracker',{})
@@ -108,6 +112,11 @@ class BuildsDialog(QDialog):
         signature=(self.activity.currentData(),id(self.owner.last),repr(self.owner.settings.get('general')),int(time.time()//10))
         if signature==self.signature:return
         self.signature=signature
+        self.generation+=1;self.paint_batch.cancel();self.build_table.blockSignals(False)
+        if self.calculation_worker and self.calculation_worker.isRunning():self.calculation_worker.requestInterruption()
+        self.calculate_timer.start()
+    def start_calculation(self):
+        if self.calculation_worker and self.calculation_worker.isRunning():self.calculate_timer.start();return
         builds=self.snapshots.get(self.activity.currentData(),{}).get('builds',[])
         available={r.item_id for r in self.owner.recipes}
         scenarios=[(b,t,e) for b in builds for t,e in build_variants(b,self.tier.currentData(),self.enchantment.currentData(),available)]
@@ -115,12 +124,25 @@ class BuildsDialog(QDialog):
         # Also include recipe ingredients when evaluating crafting profit.
         recipes=[r for r in self.owner.recipes if r.item_id in ids];all_ids=ids|{i.item_id for r in recipes for i in r.ingredients}
         prices,histories=self.market(all_ids);settings=dict(self.owner.settings,activity='craft',sale_mode='order')
-        context={}
-        results=[evaluate(b,prices,histories,self.city.currentText(),t,e,self.quality.currentData(),recipes,settings,context) for b,t,e in scenarios]
-        self.rows=[r for r in results if (r['complete'] and (not self.budget.value() or r['cost']<=self.budget.value())) or (not r['complete'] and self.incomplete.isChecked())]
-        self.rows.sort(key=lambda r:(not r['complete'],r['cost'] if self.sort.currentData()=='cheap' else -r['build']['votes'],r['cost'] if r['complete'] else float('inf'),r['build']['id'],r['tier'],r['enchantment']))
+        from copy import deepcopy
+        payload=dict(scenarios=scenarios,prices=prices,histories=histories,city=self.city.currentText(),quality=self.quality.currentData(),
+            recipes=recipes,settings=deepcopy(settings),budget=self.budget.value(),incomplete=self.incomplete.isChecked(),sort=self.sort.currentData())
+        generation=self.generation
+        if not scenarios:self.paint_batch.start(self.display_results(dict(rows=[],count=0,complete=0),builds));return
+        self.summary.setText('Пересчитываю варианты билдов…')
+        self.calculation_worker=ProcessWorker('builds',payload,self)
+        self.calculation_worker.ready.connect(lambda result:self.paint_batch.start(self.display_results(result,builds)) if generation==self.generation else None)
+        self.calculation_worker.failed.connect(lambda message:self.status.setText(message) if generation==self.generation else None)
+        self.calculation_worker.finished.connect(self.calculation_finished)
+        self.calculation_worker.start()
+    def calculation_finished(self):
+        worker=self.sender()
+        if worker is self.calculation_worker:self.calculation_worker=None
+        if worker:worker.deleteLater()
+    def display_results(self,result,builds):
+        self.rows=result['rows']
         selected_id=self.selected['key'] if self.selected else None
-        self.build_table.blockSignals(True);self.build_table.setRowCount(len(self.rows))
+        self.build_table.blockSignals(True);self.build_table.setRowCount(0);self.build_table.setRowCount(len(self.rows))
         for n,r in enumerate(self.rows):
             b=r['build'];state='В бюджете' if r['complete'] and self.budget.value() else 'Цены полные' if r['complete'] else 'Недостаёт цен: '+str(len(r['missing']))+'; бюджет неизвестен'
             if any(p['age'] is not None and p['age']>30 for p in r['parts']):state+='; есть старые цены'
@@ -128,9 +150,10 @@ class BuildsDialog(QDialog):
             for c,value in enumerate(values):
                 cell=QTableWidgetItem(str(value));cell.setToolTip(b['title']+'\n'+b['url']);self.build_table.setItem(n,c,cell)
             self.build_table.setRowHeight(n,40)
+            yield
         self.build_table.setColumnWidth(0,360);self.build_table.setColumnWidth(1,110);self.build_table.setColumnWidth(2,150);self.build_table.setColumnWidth(3,460)
         self.build_table.blockSignals(False)
-        self.summary.setText(f'Вариантов показано: {len(self.rows)} / {len(results)} • билдов: {len(builds)} • с полной стоимостью: {sum(r["complete"] for r in results)}. Цены: {self.city.currentText()} / {self.tier.currentText()} / {self.enchantment.currentText()}. Источник: {SOURCE}.')
+        self.summary.setText(f'Вариантов показано: {len(self.rows)} / {result["count"]} • билдов: {len(builds)} • с полной стоимостью: {result["complete"]}. Цены: {self.city.currentText()} / {self.tier.currentText()} / {self.enchantment.currentText()}. Источник: {SOURCE}.')
         index=next((n for n,r in enumerate(self.rows) if r['key']==selected_id),0)
         self.selected=None
         if self.rows:self.build_table.selectRow(index);self.select_build()
@@ -186,6 +209,7 @@ class BuildsDialog(QDialog):
     def showEvent(self,event):super().showEvent(event);self.timer.start();self.signature=None;self.refresh();self.load_site(False)
     def hideEvent(self,event):self.timer.stop();super().hideEvent(event)
     def closeEvent(self,event):
-        self.timer.stop()
+        self.timer.stop();self.calculate_timer.stop();self.paint_batch.cancel();self.build_table.blockSignals(False)
+        if self.calculation_worker and self.calculation_worker.isRunning():self.calculation_worker.requestInterruption()
         if self.worker and self.worker.isRunning():self.hide();event.ignore()
         else:super().closeEvent(event)

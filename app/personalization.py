@@ -1,5 +1,7 @@
 from .i18n import tr
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt,QSortFilterProxyModel,QTimer
+from PySide6.QtWidgets import QListView
+from .responsive import CheckChoiceModel
 from .i18n_widgets import (QDialog,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,QListWidget,
     QListWidgetItem,QTabWidget,QWidget,QFormLayout,QSpinBox,QDoubleSpinBox,QDialogButtonBox,QPushButton,QMessageBox)
 from .preferences import exclusion_key
@@ -13,14 +15,14 @@ class PersonalizationDialog(QDialog):
         exclusions=QWidget();body=QVBoxLayout(exclusions);tabs.addTab(exclusions,'Исключения')
         label=QLabel('Отмеченные предметы скрываются при галочке «Без исключённых» в главном окне.\nИсключение действует на все уровни, чары и качества выбранного предмета.');label.setWordWrap(True);body.addWidget(label)
         self.search=QLineEdit();self.search.setPlaceholderText('Найти предмет…');body.addWidget(self.search)
-        self.items=QListWidget();body.addWidget(self.items)
+        self.items=QListView();body.addWidget(self.items)
         names={}
         for r in recipes:names.setdefault(exclusion_key(r),r.name.split(' (')[0])
         selected=set(settings.get('excluded_items',[]))
-        for key,name in sorted(names.items(),key=lambda x:x[1]):
-            item=QListWidgetItem(name);item.setData(Qt.UserRole,key);item.setFlags(item.flags()|Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Checked if key in selected else Qt.Unchecked);self.items.addItem(item)
-        self.search.textChanged.connect(self.filter)
+        self.item_model=CheckChoiceModel([(name,key) for key,name in sorted(names.items(),key=lambda x:x[1])],selected,self)
+        self.proxy=QSortFilterProxyModel(self);self.proxy.setSourceModel(self.item_model);self.proxy.setFilterCaseSensitivity(Qt.CaseInsensitive);self.items.setModel(self.proxy)
+        self.search_timer=QTimer(self);self.search_timer.setSingleShot(True);self.search_timer.setInterval(150);self.search_timer.timeout.connect(lambda:self.filter(self.search.text()))
+        self.search.textChanged.connect(lambda:self.search_timer.start())
         clear=QPushButton('Снять все исключения');body.addWidget(clear);clear.clicked.connect(self.clear)
         options=QWidget();form=QFormLayout(options);tabs.addTab(options,'Рекомендации')
         prefs=settings.get('recommendations',{})
@@ -33,12 +35,11 @@ class PersonalizationDialog(QDialog):
         buttons.accepted.connect(self.save);buttons.rejected.connect(self.reject)
         fit_window(self)
     def filter(self,text):
-        for n in range(self.items.count()):
-            item=self.items.item(n);item.setHidden(text.casefold() not in item.text().casefold())
+        self.proxy.setFilterFixedString(text)
     def clear(self):
-        for n in range(self.items.count()):self.items.item(n).setCheckState(Qt.Unchecked)
+        self.item_model.clear()
     def save(self):
         if self.low.value()>self.high.value():QMessageBox.warning(self,'ROI','Нижняя граница должна быть не выше верхней.');return
-        self.excluded=sorted(self.items.item(n).data(Qt.UserRole) for n in range(self.items.count()) if self.items.item(n).checkState()==Qt.Checked)
+        self.excluded=sorted(self.item_model.checked)
         self.recommendations=dict(stale_hours=self.hours.value(),roi_min=str(self.low.value()),roi_max=str(self.high.value()))
         self.accept()

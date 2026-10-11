@@ -6,11 +6,12 @@ from collections import deque
 from urllib.request import Request, urlopen
 from urllib.parse import quote, urlencode
 from urllib.error import HTTPError, URLError
-
-BASE = 'https://europe.albion-online-data.com'
+from .regions import REGIONS, region_key
 
 class AlbionAPI:
-    def __init__(self):
+    def __init__(self, region='europe'):
+        self.region = region_key(region)
+        self.base = REGIONS[self.region]['host']
         self.requests = deque()
         self.cancel = lambda:False
 
@@ -52,7 +53,7 @@ class AlbionAPI:
 
     def prices(self, ids, cities, quality):
         query = urlencode({'locations':','.join(cities), 'qualities':','.join(map(str, range(1,6) if quality is None else sorted({1,quality})))})
-        prefix = BASE + '/api/v2/stats/prices/'
+        prefix = self.base + '/api/v2/stats/prices/'
         batches, batch = [], []
         for uid in sorted(set(ids)):
             candidate = prefix + quote(','.join(batch+[uid]), safe=',@') + '.json?' + query
@@ -65,6 +66,10 @@ class AlbionAPI:
         result = []
         for part in batches:
             result.extend(self.get(prefix + quote(','.join(part),safe=',@') + '.json?' + query))
+        for row in result:
+            if isinstance(row,dict):
+                for side in ('sell_price_min','sell_price_max','buy_price_min','buy_price_max'):
+                    row[side+'_source']=REGIONS[self.region]['label']+' API'
         return result
 
     def history(self, ids, cities, quality):
@@ -76,6 +81,6 @@ class AlbionAPI:
         # Small batches also limit payload sizes for multi-city history.
         ordered=sorted(set(ids))
         for n in range(0,len(ordered),30):
-            url=BASE+'/api/v2/stats/history/'+quote(','.join(ordered[n:n+30]),safe=',@')+'.json?'+query
+            url=self.base+'/api/v2/stats/history/'+quote(','.join(ordered[n:n+30]),safe=',@')+'.json?'+query
             result.extend(self.get(url))
         return result

@@ -62,6 +62,14 @@
         "cloth_armor": "0.15"
       }
     },
+    "Brecilien": {
+      "base": "0.18",
+      "bonuses": {
+        "cape": "0.15",
+        "bag": "0.15",
+        "potion": "0.15"
+      }
+    },
     "Caerleon": {
       "base": "0.18",
       "bonuses": {

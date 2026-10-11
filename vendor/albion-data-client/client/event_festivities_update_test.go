@@ -96,6 +96,9 @@ func TestFestivitiesUpdateRejectsInvalidPayload(t *testing.T) {
 func TestFestivitiesUpdateSendsToPublicIngest(t *testing.T) {
 	requests := make(chan lib.FestivitiesUpload, 2)
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.Header.Get("X-Albion-Server") != "3" {
+			t.Errorf("HTTP upload lost server identity: %q", request.Header.Get("X-Albion-Server"))
+		}
 		if request.Method != http.MethodPost {
 			t.Errorf("unexpected method: %s", request.Method)
 		}

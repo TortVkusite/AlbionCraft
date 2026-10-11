@@ -28,10 +28,10 @@ class SettingsDialog(QDialog):
                 'Пустая станция не считается бесплатной: выводится верхняя граница прибыли. Тариф за 100 питания задаётся в главном окне.\n'
                 'Заполненные ручные значения имеют приоритет. Прочие расходы укажите явно; 0 — расходы не предусмотрены.')
         self.recipe=QComboBox()
-        self.recipe.addItem('Общий профиль — для всех выбранных предметов',None)
-        for r in recipes: self.recipe.addItem(f'{r.name} • {r.item_id} • {r.path} • #{r.variant+1}',r)
+        from .responsive import set_choices
+        set_choices(self.recipe,[('Общий профиль — для всех выбранных предметов',None)]+[(f'{r.name} • {r.item_id} • {r.path} • #{r.variant+1}',r) for r in recipes])
         layout.addWidget(self.recipe)
-        self.grid=QTableWidget(6,4); self.grid.setHorizontalHeaderLabels(['Город крафта','RRR без Focus, %','RRR с Focus, %','Станция, серебро'])
+        self.grid=QTableWidget(len(CITIES),4); self.grid.setHorizontalHeaderLabels(['Город крафта','RRR без Focus, %','RRR с Focus, %','Станция, серебро'])
         layout.addWidget(self.grid)
         form=QFormLayout(); layout.addLayout(form)
         self.fields={}

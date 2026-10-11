@@ -58,7 +58,7 @@ class LocalMarketTests(unittest.TestCase):
         local['sell_price_min_date']=(now-timedelta(days=2)).isoformat()
         self.assertEqual(merge_local([old],[local])[0]['sell_price_min'],200)
     def test_validation_and_enchanted_material(self):
-        for changes in [dict(UnitPriceSilver=True),dict(UnitPriceSilver=1.5),dict(LocationId='5003'),dict(Amount=0),dict(ItemTypeId='../bad'),dict(EnchantmentLevel=8)]:
+        for changes in [dict(UnitPriceSilver=True),dict(UnitPriceSilver=1.5),dict(LocationId='99999'),dict(Amount=0),dict(ItemTypeId='../bad'),dict(EnchantmentLevel=8)]:
             self.assertEqual(decode_orders({'Orders':[self.order(**changes)]}),[])
         row=decode_orders({'Orders':[self.order(ItemTypeId='T4_ORE_LEVEL1',EnchantmentLevel=1)]})[0]
         self.assertEqual(row[1],'T4_ORE_LEVEL1@1')

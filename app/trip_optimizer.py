@@ -8,6 +8,7 @@ import math
 from dataclasses import dataclass
 from decimal import Decimal as D, ROUND_CEILING
 from fnmatch import fnmatchcase
+from functools import lru_cache
 from .catalog import many
 from .models import CITIES, quote
 from .scanner import scan, number
@@ -22,6 +23,7 @@ def refining_recipes(recipes):
 def item_data(game,uid):
     return game.items.get(uid.split('@')[0],{})
 
+@lru_cache(maxsize=4096)
 def refining_nodes(game,recipe):
     base=recipe.item_id.split('@')[0]
     return [k for k,n in game.nodes.items() if n['@usetemplate'].startswith('REFINE_')

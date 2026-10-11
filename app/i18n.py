@@ -35,7 +35,12 @@ def _fragments():
     return re.compile('|'.join(pattern(key) for key in sorted(keys,key=len,reverse=True)))
 
 def tr(text):
-    if _language=='ru' or not isinstance(text,str) or not re.search('[А-Яа-яЁё]',text):return text
+    if not isinstance(text,str):return text
+    return _translate(_language,text)
+
+@lru_cache(maxsize=16384)
+def _translate(language,text):
+    if language=='ru' or not re.search('[А-Яа-яЁё]',text):return text
     mapping=translations()
     if text in mapping:return mapping[text]
     # Old manually entered orders can still contain official Russian item names.

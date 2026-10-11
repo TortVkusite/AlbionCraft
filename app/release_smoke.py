@@ -57,6 +57,36 @@ def check(output):
             assert not failed and received,failed
             assert received[0]['optimal'] and received[0]['gain']==21
             result['fame_subprocess']='ok'
+            from app.background import ProcessWorker
+            from decimal import Decimal as D
+            from datetime import datetime,timezone
+            recipe=next(r for r in recipes if r.item_id=='T2_METALBAR')
+            stamp=datetime.now(timezone.utc).isoformat()
+            prices=[dict(item_id=uid,city=city,quality=1,sell_price_min=value,sell_price_min_date=stamp)
+                for uid,value in [('T2_ORE',16),('T2_METALBAR',22)] for city in ('Fort Sterling','Thetford')]
+            settings=dict(auto_rules=True,other='0',tax='0',setup='0',prefer_upgrades=False)
+            def calculate(kind,payload):
+                job=ProcessWorker(kind,payload);values=[];errors=[]
+                job.ready.connect(values.append);job.failed.connect(errors.append);job.start()
+                end=time.monotonic()+45
+                while job.isRunning() and time.monotonic()<end:app.processEvents();time.sleep(.01)
+                if job.isRunning():job.requestInterruption();job.wait(6000)
+                app.processEvents();assert not errors and values,(kind,errors)
+                return values[0]
+            scanned=calculate('scan',dict(recipes=[recipe],settings=settings,activity='craft',prices=prices,histories=[],
+                quality=1,age=30,buy=['Thetford'],craft=['Thetford'],sell=['Thetford'],demand=None,with_prices=True,sort='profit',descending=True))
+            assert len(scanned['rows'])==1
+            recommendations=calculate('recommendations',dict(rows=scanned['recommendations'],settings=settings))
+            assert recommendations['price_count']==2
+            plans=calculate('trip',dict(root=folder,stock_rows=[],buy='Fort Sterling',city='Thetford',prices=prices,histories=[],age=30,
+                joint=True,roots={recipe.item_id},recipes=[recipe],settings=settings,states={},day_bonus=D(0),rate=D(0),other=D(0),
+                multiplier=D(1),mastery=False,limits={recipe.item_id:20},depth='quote',horizon=0,share=10,
+                budget=1000,weight=1000,focus=100,repeat=True,objective='profit'))
+            assert plans['plans'][0]['lines'] and plans['plans'][0]['profit']>0
+            result['background_scan_trip_recommendations']='ok'
+            from app.regions import region_root
+            assert region_root(data_root(),'west')!=data_root() and region_root(data_root(),'east')!=data_root()
+            result['server_profiles']='ok'
             from scipy.optimize import milp,Bounds
             solution=milp(c=np.array([-1.]),integrality=np.ones(1),bounds=Bounds([0],[3]))
             assert solution.success and round(solution.x[0])==3

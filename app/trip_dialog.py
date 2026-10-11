@@ -22,6 +22,7 @@ from .trip_market import configure_market,turnover
 from .ui_layout import FlowLayout,explanation,readable_table,fit_window
 from .i18n_widgets import QScrollArea
 from .number_fields import NumberBox,LargeNumberBox
+from .background import ProcessWorker
 
 FAMILIES={'ore':'Руда / слитки','fiber':'Волокно / ткань','hide':'Шкуры / кожа','wood':'Древесина / брусья','rock':'Камень / блоки'}
 
@@ -37,23 +38,6 @@ class NoWheelDouble(LargeNumberBox):
 class NoWheelInt(NumberBox):
     def wheelEvent(self,event):event.ignore()
 
-class OptimizerWorker(QThread):
-    ready=Signal(object);failed=Signal(str)
-    def __init__(self,options,budget,weight,focus,repeat=False,chain=False,objective_mode='profit',stock=()):
-        super().__init__();self.options=options;self.budget=budget;self.weight=weight;self.focus=focus;self.repeat=repeat;self.chain=chain
-        self.objective_mode=objective_mode
-        self.stock=stock
-    def run(self):
-        try:
-            logging.info('Trip optimizer started: %s candidates, budget=%s, weight=%s, focus=%s',len(self.options),self.budget,self.weight,self.focus)
-            engine=solve_chain if self.chain else solve
-            extra=dict(stock=self.stock) if self.chain else {}
-            plans=[engine(self.options,self.budget,self.weight,repeat=self.repeat,objective_mode=self.objective_mode,**extra),engine(self.options,self.budget,self.weight,self.focus,repeat=self.repeat,objective_mode=self.objective_mode,**extra)]
-            for plan in plans:plan['objective_mode']=self.objective_mode
-            logging.info('Trip optimizer finished: %s result rows',sum(len(p['lines']) for p in plans))
-            self.ready.emit(plans)
-        except Exception as exc:
-            logging.exception('Trip optimizer failed');self.failed.emit(str(exc))
 
 class TripDialog(QDialog):
     def __init__(self,parent,root):
@@ -107,6 +91,7 @@ class TripDialog(QDialog):
         buttons=FlowLayout();outer.addLayout(buttons)
         self.fetch_button=QPushButton('Обновить цены отмеченных');buttons.addWidget(self.fetch_button);self.fetch_button.clicked.connect(self.fetch_prices)
         self.calculate_button=QPushButton('Подобрать максимальную прибыль');buttons.addWidget(self.calculate_button);self.calculate_button.clicked.connect(self.calculate)
+        self.cancel_button=QPushButton('Отмена');buttons.addWidget(self.cancel_button);self.cancel_button.setEnabled(False);self.cancel_button.clicked.connect(self.cancel_calculation)
         self.record_button=QPushButton('Партия выполнена — XP / запасы');buttons.addWidget(self.record_button);self.record_button.clicked.connect(self.record);self.record_button.setEnabled(False)
         self.record_button.setToolTip('Записать XP и списать взятые для партии запасы. Фактические возвраты и новые готовые ресурсы прочитай из банка после переработки.')
         self.audit_button=QPushButton('Проверка расчёта');buttons.addWidget(self.audit_button);self.audit_button.clicked.connect(self.show_audit);self.audit_button.setEnabled(False)
@@ -313,32 +298,34 @@ class TripDialog(QDialog):
         self.plan_settings=dict(self.owner.settings,sale_mode=self.sale.currentData())
         self.plan_city=self.craft.currentText();self.plan_buy=self.buy.currentText();self.plan_player=self.player.text().strip() or 'Мой персонаж'
         limits={uid:box.value() for uid,box in self.caps.items() if box.value()}
-        try:
-            stock,self.stock_missing=route_stock(self.relevant_stock(),self.plan_buy,self.plan_city,prices,None if self.age.isChecked() else 30)
-            joint=self.chain.isChecked() or self.use_stock.isChecked() or self.depth.currentData()!='quote' or self.horizon.value()>0
-            engine=prepare_chain if joint else candidates
-            extra=dict(roots={r.item_id for r in self.selected_recipes()},stock=stock) if joint else {}
-            extra['day_bonus']=D(str(self.day_bonus.value()))
-            options,rejected=engine(selected,prices,histories,self.plan_buy,self.plan_city,self.plan_settings,self.game,self.states,
-                None if self.age.isChecked() else 30,rate,D(str(self.other.value())),D(str(self.multiplier.value())),self.mastery.isChecked(),limits,**extra)
-            self.depth_warnings=configure_market(options,prices,self.depth.currentData(),self.horizon.value(),self.share.value(),None if self.age.isChecked() else 30)
-        except Exception as exc:self.status.setText('Не удалось подготовить расчёт: '+str(exc));return
-        self.audit_options=options;self.rejected=rejected;self.audit_button.setEnabled(True);self.start_states={k:dict(v) for k,v in self.states.items()};self.recorded=False
+        joint=self.chain.isChecked() or self.use_stock.isChecked() or self.depth.currentData()!='quote' or self.horizon.value()>0
+        from copy import deepcopy
+        payload=dict(root=str(self.root),stock_rows=self.relevant_stock(),buy=self.plan_buy,city=self.plan_city,
+            prices=prices,histories=histories,age=None if self.age.isChecked() else 30,joint=joint,
+            roots={r.item_id for r in self.selected_recipes()},recipes=selected,settings=deepcopy(self.plan_settings),states=self.states,
+            day_bonus=D(str(self.day_bonus.value())),rate=rate,other=D(str(self.other.value())),multiplier=D(str(self.multiplier.value())),
+            mastery=self.mastery.isChecked(),limits=limits,depth=self.depth.currentData(),horizon=self.horizon.value(),share=self.share.value(),
+            budget=self.budget.value(),weight=self.weight.value(),focus=self.focus.value(),repeat=self.repeat.isChecked(),
+            objective='roi' if self.roi_target.isChecked() else 'profit')
+        self.start_states={k:dict(v) for k,v in self.states.items()};self.recorded=False
         self.price_signature=self.market_signature()
-        self.explanation='\n'.join(f'{r.name} T{r.tier}.{r.enchantment}: {reason}' for r,reason in rejected)
-        self.explanation+='\n'+'\n'.join('Запас не включён — неизвестна стоимость: '+item_name(r['item_id'],False) for r in self.stock_missing)
-        if not options:self.status.setText('Нет допустимых ресурсов. Пропущено: '+str(len(rejected))+'. '+ '; '.join(reason for r,reason in rejected[:2]));return
-        self.status.setText('Подбираю количества под вес, бюджет и фокус…');self.status.setToolTip(self.explanation)
-        self.worker=OptimizerWorker(options,self.budget.value(),self.weight.value(),self.focus.value(),self.repeat.isChecked(),joint,'roi' if self.roi_target.isChecked() else 'profit',stock)
+        self.status.setText('Подготавливаю ресурсы и подбираю количества под вес, бюджет и фокус…')
+        self.worker=ProcessWorker('trip',payload,self,timeout=90)
+        self.cancel_button.setEnabled(True)
         self.calculate_button.setEnabled(False);self.fetch_button.setEnabled(False);self.set_inputs_enabled(False)
         self.worker.ready.connect(self.received,Qt.QueuedConnection)
         self.worker.failed.connect(self.calculation_failed,Qt.QueuedConnection)
         self.worker.finished.connect(self.worker_finished,Qt.QueuedConnection);self.worker.start()
+    def cancel_calculation(self):
+        if self.worker and self.worker.isRunning():
+            self.worker.requestInterruption();self.cancel_button.setEnabled(False);self.status.setText('Расчёт отменяется…')
     def set_inputs_enabled(self,enabled):
         for w in [self.buy,self.craft,self.player,self.weight,self.budget,self.focus,self.station,self.other,self.multiplier,self.day_bonus,self.sale,self.choices,self.mastery,self.age,self.repeat,self.chain,self.cash_target,self.roi_target,self.use_stock,self.stock_button,self.depth,self.horizon,self.share,self.market_button,self.ledger_button,self.preset_button,*self.selection_buttons]:w.setEnabled(enabled)
     @Slot()
     def worker_finished(self):
         if self.closed:return
+        self.cancel_button.setEnabled(False)
+        if self.worker.isInterruptionRequested():self.status.setText('Расчёт отменён. Профиль и запасы не изменены.')
         self.calculate_button.setEnabled(True);self.fetch_button.setEnabled(True);self.set_inputs_enabled(True)
     @Slot(str)
     def calculation_failed(self,error):
@@ -349,7 +336,14 @@ class TripDialog(QDialog):
         if self.closed:return
         if QThread.currentThread()!=self.thread():
             logging.error('Trip result delivered outside GUI thread');return
-        try:self.display_plans(plans)
+        try:
+            self.audit_options=plans['options'];self.rejected=plans['rejected'];self.stock_missing=plans['stock_missing'];self.depth_warnings=plans['depth_warnings']
+            self.audit_button.setEnabled(bool(self.audit_options))
+            self.explanation='\n'.join(f'{r.name} T{r.tier}.{r.enchantment}: {reason}' for r,reason in self.rejected)
+            self.explanation+='\n'+'\n'.join('Запас не включён — неизвестна стоимость: '+item_name(r['item_id'],False) for r in self.stock_missing)
+            if not plans['plans']:
+                self.status.setText('Нет допустимых ресурсов. Пропущено: '+str(len(self.rejected))+'. '+ '; '.join(reason for r,reason in self.rejected[:2]));self.status.setToolTip(self.explanation);return
+            self.display_plans(plans['plans'])
         except Exception as exc:
             logging.exception('Trip result display failed');self.invalidate();self.calculation_failed(str(exc))
     def display_plans(self,plans):
@@ -462,9 +456,10 @@ class TripDialog(QDialog):
         self.recorded=True;self.record_button.setEnabled(False)
         self.status.setText('Партия записана, XP обновлён, взятые запасы списаны. Прочитай банк заново для фактических возвратов. Фактическую прибыль запиши после продаж.');self.states=progress['states'];self.refresh_profile()
     def done(self,result):
-        if self.worker and self.worker.isRunning():self.status.setText('Дождись завершения подбора — не более 20 секунд.');return
+        if self.worker and self.worker.isRunning():
+            self.cancel_calculation();QTimer.singleShot(100,lambda:self.done(result));return
         if not self.closed:self.timer.stop();self.preferences();self.store.close();self.stock_store.close();self.closed=True
         super().done(result)
     def closeEvent(self,event):
-        if self.worker and self.worker.isRunning():event.ignore();return
+        if self.worker and self.worker.isRunning():self.done(0);event.ignore();return
         self.done(0);event.accept()

@@ -11,6 +11,7 @@ from .market_stream import LOCATIONS
 from pathlib import Path
 from functools import lru_cache
 from .item_ids import market_item_id
+from .regions import REGIONS,region_key
 
 PORT=43871
 SOURCE='Из твоей игры: наблюдавшийся ордер'
@@ -108,7 +109,8 @@ def merge_local(primary,local):
                 if side+'_amount' in p:row[side+'_amount']=p[side+'_amount']
     return list(result.values())
 
-def make_server(path,token,on_update,port=PORT):
+def make_server(path,token,on_update,port=PORT,region=None,on_status=lambda text:None):
+    expected=region_key(region) if region is not None else None
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args):pass
         def do_POST(self):
@@ -120,6 +122,14 @@ def make_server(path,token,on_update,port=PORT):
                 else:self.send_error(404)
                 self.close_connection=True;return
             try:
+                if expected is not None:
+                    try:actual=region_key(self.headers.get('X-Albion-Server',''))
+                    except ValueError:
+                        on_status('Из игры: сервер не определён. Запусти обновлённый клиент через приложение.')
+                        self.send_error(422,'Missing Albion server');self.close_connection=True;return
+                    if actual!=expected:
+                        on_status('Из игры: выбери сервер '+REGIONS[actual]['label']+'; данные другого сервера не сохранены.')
+                        self.send_error(409,'Wrong Albion server');self.close_connection=True;return
                 size=int(self.headers.get('Content-Length','0'))
                 if not 0<size<=2_000_000:self.send_error(413);return
                 payload=json.loads(self.rfile.read(size))
@@ -152,13 +162,14 @@ def make_server(path,token,on_update,port=PORT):
 class LocalReceiver(QThread):
     updated=Signal(int)
     status=Signal(str)
-    def __init__(self,path,token,port=PORT):super().__init__();self.path=path;self.token=token;self.port=port
+    def __init__(self,path,token,port=PORT,region='europe'):
+        super().__init__();self.path=path;self.token=token;self.port=port;self.region=region_key(region)
     def run(self):
         try:
-            server=make_server(self.path,self.token,self.updated.emit,self.port)
+            server=make_server(self.path,self.token,self.updated.emit,self.port,self.region,self.status.emit)
             self.port=server.server_port
         except OSError as exc:self.status.emit('Локальный приём недоступен: '+str(exc));return
-        self.status.emit('Из игры: приём включён, ожидаю ордера • только Europe')
+        self.status.emit('Из игры: приём включён, ожидаю ордера • '+REGIONS[self.region]['label'])
         try:
             while not self.isInterruptionRequested():server.handle_request()
         finally:server.server_close()

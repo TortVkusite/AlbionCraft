@@ -1,4 +1,5 @@
 import math
+from html import escape
 from pathlib import Path
 from PySide6.QtCore import Qt,QRectF,QPointF,QTimer
 from PySide6.QtGui import QColor,QPen,QBrush,QPainter,QFont,QImage,QPixmap
@@ -10,6 +11,7 @@ from .progression import PlayerStore,advance
 from .destiny import build_branches,node_name,MODES,GROUP_COLORS
 from .formatting import money
 from .i18n import tr
+from .responsive import GuiBatch,set_choices
 
 
 class BoardNode(QGraphicsObject):
@@ -87,7 +89,9 @@ class DestinyDialog(QDialog):
         super().__init__(parent);self.setWindowTitle('Доска развития — профиль');self.resize(1440,900)
         from .ui_layout import fit_window,compact_combos
         self.root=Path(root);self.recipes=recipes;self.market_row=row;self.game=progression(str(root));self.store=PlayerStore(self.root/'player.sqlite')
-        self.branches=build_branches(self.game,recipes);self.icons=getattr(parent,'icons',None);self.states={};self.cards={};self.category=None;self.branch=None;self.loading=False
+        self.branches=build_branches(self.game,recipes);self.icons=getattr(parent,'icons',None);self.states={};self.cards={};self.category=None;self.section=None;self.branch=None;self.loading=False;self.board_page=0
+        self.draw_batch=GuiBatch(self)
+        self.search_timer=QTimer(self);self.search_timer.setSingleShot(True);self.search_timer.setInterval(180);self.search_timer.timeout.connect(self.search_changed)
         self.setStyleSheet('QDialog,QWidget{background:#242722;color:#e5d6b8;font-family:"Segoe UI";font-size:13px;}'
             'QLineEdit,QSpinBox,QDoubleSpinBox,QComboBox{background:#34382f;border:1px solid #746c51;border-radius:5px;padding:5px;}'
             'QSpinBox,QDoubleSpinBox{padding:5px 30px 5px 5px;min-height:24px;}'
@@ -108,7 +112,10 @@ class DestinyDialog(QDialog):
         for key,label in MODES.items():self.mode.addItem(label,key)
         tools.addWidget(self.mode);self.search=QLineEdit();self.search.setPlaceholderText('Найти ветку: мечи, ткань, алхимия…');tools.addWidget(self.search,1)
         back=QPushButton('← Назад');tools.addWidget(back);back.clicked.connect(self.back)
-        self.breadcrumb=QLabel();layout.addWidget(self.breadcrumb)
+        self.previous=QPushButton('◀');tools.addWidget(self.previous);self.previous.clicked.connect(lambda:self.turn_page(-1))
+        self.page_label=QLabel();tools.addWidget(self.page_label)
+        self.next=QPushButton('▶');tools.addWidget(self.next);self.next.clicked.connect(lambda:self.turn_page(1))
+        self.breadcrumb=QLabel();self.breadcrumb.setTextFormat(Qt.RichText);self.breadcrumb.linkActivated.connect(self.navigate);layout.addWidget(self.breadcrumb)
         legend=QLabel('<span style="color:#cf7770">● Воин</span>　<span style="color:#7dbb80">● Охотник</span>　<span style="color:#7ca6dc">● Чародей</span>');layout.addWidget(legend)
         split=QSplitter();layout.addWidget(split,1)
         self.scene=QGraphicsScene(self);self.view=BoardView(self.scene);self.view.setRenderHint(QPainter.Antialiasing);self.view.board=self;self.view.setDragMode(QGraphicsView.NoDrag);self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff);self.view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -117,7 +124,7 @@ class DestinyDialog(QDialog):
         self.feedback=QLabel('Уровни сохраняются локально. Нулевые значки — ЧБ. ЛКМ — открыть прокачку, ПКМ — назад. Колесо прокручивает список и не меняет числа.');self.feedback.setWordWrap(True);layout.addWidget(self.feedback)
         note=QLabel('Вводится текущий уровень и XP внутри уровня. Требование до следующего берётся из игровой таблицы для конкретного узла. Это лёгкая версия доски: уровни 0–100, без LP и элитных уровней.');note.setWordWrap(True);layout.addWidget(note)
         self.save_timer=QTimer(self);self.save_timer.setSingleShot(True);self.save_timer.setInterval(400);self.save_timer.timeout.connect(self.save_cards)
-        self.mode.currentIndexChanged.connect(self.reset);self.search.textChanged.connect(self.search_changed)
+        self.mode.currentIndexChanged.connect(self.reset);self.search.textChanged.connect(lambda:self.search_timer.start())
         if self.icons:self.icons.ready.connect(self.icons_ready)
         self.load_profile()
         if row:
@@ -141,14 +148,16 @@ class DestinyDialog(QDialog):
         else:self.draw()
     def reset(self,*args):
         if self.save_cards() is False:return
-        self.category=None;self.branch=None;self.clear_panel();self.draw()
+        self.category=None;self.section=None;self.branch=None;self.board_page=0;self.clear_panel();self.draw()
     def search_changed(self):
         if self.save_cards() is False:return
-        self.category=None;self.branch=None;self.clear_panel();self.draw()
+        self.category=None;self.section=None;self.branch=None;self.board_page=0;self.clear_panel();self.draw()
     def back(self):
         if self.save_cards() is False:return
         if self.branch:self.branch=None;self.clear_panel()
+        elif self.section:self.section=None
         elif self.category:self.category=None
+        self.board_page=0
         self.draw()
     def clear_panel(self):
         self.loading=True
@@ -160,8 +169,12 @@ class DestinyDialog(QDialog):
         self.panel_layout.addStretch()
     def active(self,keys):return any(self.states.get(k,{}).get('level',0)>0 for k in keys)
     def draw(self,fit=True):
-        self.scene.clear();self.scene.setSceneRect(-690,-690,1380,1380)
-        self.breadcrumb.setText(MODES[self.mode.currentData()]+(' › '+self.category if self.category else '')+(' › '+self.branch.label if self.branch else ''))
+        self.draw_batch.cancel();self.scene.clear();self.scene.setSceneRect(-690,-690,1380,1380)
+        crumbs=[('root',MODES[self.mode.currentData()])]
+        if self.category:crumbs.append(('category',self.category))
+        if self.section:crumbs.append(('section',self.section))
+        if self.branch:crumbs.append(('branch',self.branch.label))
+        self.breadcrumb.setText(' › '.join(f'<a style="color:#d7b76e" href="{key}">{escape(tr(label))}</a>' for key,label in crumbs))
         branches=[b for b in self.branches if b.mode==self.mode.currentData()]
         query=self.search.text().strip().casefold()
         if query:branches=[b for b in branches if query in b.label.casefold() or any(query in node_name(self.game,k).casefold() for k in b.nodes)]
@@ -170,9 +183,16 @@ class DestinyDialog(QDialog):
             leaves=[k for k in b.nodes if k!=b.root]
             center=(self.root_label(b),b.icon,center_keys,lambda:self.focus_card(b.root),b.root,b.group)
             options=[(node_name(self.game,k),self.game.nodes[k].get('@itemforsprite',''),[k],lambda k=k:self.focus_card(k),k,b.group) for k in leaves]
+        elif self.category=='Броня' and not self.section and not query:
+            visible=[b for b in branches if b.category==self.category]
+            sections=sorted({b.section for b in visible})
+            center=(self.category,'',[k for b in visible for k in b.nodes],self.back,None)
+            options=[(section,next(b.icon for b in visible if b.section==section),[k for b in visible if b.section==section for k in b.nodes],lambda section=section:self.select_section(section),None,
+                {'Тканевая':'MAGE','Кожаная':'HUNTER','Латная':'WARRIOR'}.get(section,'')) for section in sections]
         elif self.category or query:
             visible=[b for b in branches if not self.category or b.category==self.category]
-            center=(self.category or 'Поиск','',[k for b in visible for k in b.nodes],self.back,None)
+            if self.section:visible=[b for b in visible if b.section==self.section]
+            center=(self.section or self.category or 'Поиск','',[k for b in visible for k in b.nodes],self.back,None)
             options=[(b.label,b.icon,b.nodes,lambda b=b:self.select_branch(b),b.root,b.group) for b in visible]
         else:
             categories=sorted({b.category for b in branches});center=(self.active_player,'',[k for b in branches for k in b.nodes],lambda:None,None)
@@ -183,30 +203,53 @@ class DestinyDialog(QDialog):
             costs=self.game.costs(key) if key else [];cap=costs[state['level']] if state and state['level']<len(costs) else None
             xp=f'XP {money(state["xp"])} / {money(cap)}' if state and cap else 'Максимум' if state else f'{sum(self.states.get(k,{}).get("level",0)>0 for k in keys)}/{len(keys)} развито'
             node=BoardNode(self,label,uid,self.active(keys),level,xp,action,radius,group);node.setPos(x,y);self.scene.addItem(node);return node
+        pages=max(1,(len(options)+11)//12);self.board_page=min(self.board_page,pages-1)
+        self.previous.setEnabled(self.board_page>0);self.next.setEnabled(self.board_page+1<pages)
+        self.page_label.setText(f'{self.board_page+1} / {pages}' if pages>1 else '')
+        self.previous.setVisible(pages>1);self.next.setVisible(pages>1)
+        options=options[self.board_page*12:(self.board_page+1)*12]
         add(center,0,0,58)
         groups=[o[5] if len(o)>5 else '' for o in options]
         gaps=[2.0 if groups[n] and groups[n]!=groups[(n+1)%len(groups)] else 1.0 for n in range(len(groups))]
-        angle=-math.pi/2
-        for n,option in enumerate(options):
-            if n:angle+=2*math.pi*gaps[n-1]/sum(gaps)
-            radius=520 if len(options)>9 else 340
-            x,y=radius*math.cos(angle),radius*math.sin(angle);active=self.active(option[2])
-            color=QColor(GROUP_COLORS.get(groups[n],'#bfa263' if active else '#555b54'))
-            if groups[n] and not active:color.setAlpha(120)
-            pen=QPen(color,3 if active else 2)
-            self.scene.addLine(0,0,x,y,pen).setZValue(-1);add(option,x,y)
-        if fit:QTimer.singleShot(0,self.fit)
+        def populate():
+            angle=-math.pi/2
+            for n,option in enumerate(options):
+                if n:angle+=2*math.pi*gaps[n-1]/sum(gaps)
+                radius=520 if len(options)>9 else 340
+                x,y=radius*math.cos(angle),radius*math.sin(angle);active=self.active(option[2])
+                color=QColor(GROUP_COLORS.get(groups[n],'#bfa263' if active else '#555b54'))
+                if groups[n] and not active:color.setAlpha(120)
+                pen=QPen(color,3 if active else 2)
+                self.scene.addLine(0,0,x,y,pen).setZValue(-1);add(option,x,y)
+                yield
+            if fit:self.fit()
+        self.draw_batch.start(populate())
+    def turn_page(self,delta):
+        self.board_page=max(0,self.board_page+delta);self.draw()
+    def navigate(self,level):
+        if self.save_cards() is False:return
+        if level=='branch':return
+        self.branch=None
+        if level in ('root','category'):self.section=None
+        if level=='root':self.category=None
+        self.board_page=0;self.clear_panel();self.draw()
     def fit(self):self.view.fitInView(self.scene.itemsBoundingRect().adjusted(-40,-40,40,40),Qt.KeepAspectRatio)
     def select_category(self,category):
         if self.save_cards() is False:return
-        self.category=category;self.branch=None;self.clear_panel();self.draw()
+        self.category=category;self.section=None;self.branch=None;self.board_page=0;self.clear_panel();self.draw()
+    def select_section(self,section):
+        if self.save_cards() is False:return
+        self.section=section;self.branch=None;self.board_page=0;self.clear_panel();self.draw()
     def select_branch(self,branch):
         if self.save_cards() is False:return
-        self.branch=branch;self.category=branch.category;self.clear_panel();self.loading=True
+        self.branch=branch;self.category=branch.category;self.section=branch.section or None;self.board_page=0;self.clear_panel();self.loading=True
         while self.panel_layout.count():
             widget=self.panel_layout.takeAt(0).widget()
             if widget:widget.setParent(None);widget.deleteLater()
-        for key in branch.nodes:self.add_card(key,key==branch.root)
+        choice=QComboBox();set_choices(choice,[(node_name(self.game,key),key) for key in branch.nodes]);self.panel_layout.addWidget(choice)
+        choice.setCurrentIndex(0);choice.currentIndexChanged.connect(lambda:self.focus_card(choice.currentData()))
+        self.card_choice=choice
+        key=branch.root or branch.nodes[0];self.add_card(key,key==branch.root)
         self.panel_layout.addStretch();self.loading=False;self.draw()
     def root_label(self,branch):
         role={'CRAFT':'Создание','COMBAT':'Ношение','REFINE':'Переработка','GATHER':'Сбор','FARM':'Выращивание'}[branch.mode]
@@ -221,7 +264,10 @@ class DestinyDialog(QDialog):
         bar=QProgressBar();bar.setRange(0,1000);v.addWidget(bar);required=QLabel();v.addWidget(required)
         extra=QHBoxLayout();v.addLayout(extra);add=WheelSafeDoubleSpinBox();add.setRange(0,1e12);add.setDecimals(2);add.setPrefix('+ XP ');extra.addWidget(add)
         apply=QPushButton('Применить');extra.addWidget(apply);apply.clicked.connect(lambda:self.add_xp(key,add))
-        self.cards[key]=(level,xp,bar,required,box);self.panel_layout.addWidget(box)
+        self.cards[key]=(level,xp,bar,required,box)
+        last=self.panel_layout.itemAt(self.panel_layout.count()-1)
+        if last and last.spacerItem():self.panel_layout.insertWidget(self.panel_layout.count()-1,box)
+        else:self.panel_layout.addWidget(box)
         level.valueChanged.connect(lambda:self.card_changed(key,True));xp.valueChanged.connect(lambda:self.card_changed(key))
         self.update_card(key)
     def update_card(self,key):
@@ -250,6 +296,14 @@ class DestinyDialog(QDialog):
         level.blockSignals(True);xp.blockSignals(True);level.setValue(l);xp.setValue(x);level.blockSignals(False);xp.blockSignals(False);field.setValue(0)
         self.update_card(key);self.save_cards()
     def focus_card(self,key):
+        if key and key not in self.cards:
+            if self.save_cards() is False:return
+            self.loading=True
+            for old,values in list(self.cards.items()):
+                if old!=self.branch.root:
+                    box=values[4];self.panel_layout.removeWidget(box);box.deleteLater();del self.cards[old]
+            self.add_card(key,key==self.branch.root);self.loading=False
+            index=self.card_choice.findData(key);self.card_choice.blockSignals(True);self.card_choice.setCurrentIndex(index);self.card_choice.blockSignals(False)
         if key in self.cards:self.scroll.ensureWidgetVisible(self.cards[key][4]);self.cards[key][0].setFocus()
     def icons_ready(self,*args):
         self.scene.update()
@@ -263,4 +317,5 @@ class DestinyDialog(QDialog):
         else:self.draw()
     def done(self,result):
         if self.save_cards() is False:return
+        self.draw_batch.cancel();self.search_timer.stop()
         self.save_timer.stop();self.store.close();super().done(result)
