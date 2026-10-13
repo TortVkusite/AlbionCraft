@@ -63,20 +63,29 @@ class ClientDialog(QDialog):
     def choose(self):
         path,_=QFileDialog.getOpenFileName(self,'Albion Data Client','','Программа (*.exe)')
         if path:self.path.setText(path)
-    def start(self):
+    def start(self,checked=False,interactive=True):
         w=self.parent_window
         if not w.local_enabled.isChecked():w.local_enabled.setChecked(True)
         path=Path(self.path.text().strip())
-        if not path.is_file():QMessageBox.warning(self,'Клиент','Скачай и установи Albion Data Client, затем выбери его .exe.');return
+        if not path.is_file():
+            message='Скачай и установи Albion Data Client, затем выбери его .exe.';self.info.setText(message)
+            if interactive:QMessageBox.warning(self,'Клиент',message)
+            return False
         if 'installer' in path.name.lower():self.info.setText('Это установщик. Нажми «Установить всё и подключить» — выбирать программу вручную не потребуется.');return
         if not capture_ready():
-            QMessageBox.warning(self,'Npcap','Не найден драйвер захвата Npcap. Установи его с WinPcap API-compatible Mode и повтори запуск.');return
-        if w.client_process and w.client_process.poll() is None:self.info.setText('Запущенный из приложения клиент уже работает.');return
+            message='Не найден драйвер захвата Npcap. Установи его с WinPcap API-compatible Mode и повтори запуск.';self.info.setText(message)
+            if interactive:QMessageBox.warning(self,'Npcap',message)
+            return False
+        if w.client_process and w.client_process.poll() is None:self.info.setText('Запущенный из приложения клиент уже работает.');return True
         try:
             logs=data_root()/'logs';logs.mkdir(exist_ok=True)
             w.client_error_log=logs/'data-client-output.log'
             with w.client_error_log.open('ab') as output:
                 w.client_process=subprocess.Popen(self.command(),stdout=output,stderr=output,creationflags=subprocess.CREATE_NO_WINDOW)
-        except OSError as exc:QMessageBox.warning(self,'Запуск',str(exc));return
+        except OSError as exc:
+            self.info.setText(str(exc))
+            if interactive:QMessageBox.warning(self,'Запуск',str(exc))
+            return False
         w.settings['data_client_path']=str(path);w.save_local_settings()
         self.info.setText('Клиент запущен. Открой рынок в игре. Если ордеров нет, проверь клиент обычным запуском: захвату могут потребоваться права администратора. Повторные экземпляры не запускай.')
+        return True

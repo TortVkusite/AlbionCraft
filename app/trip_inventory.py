@@ -11,8 +11,36 @@ class StockStore:
         self.db.execute('CREATE TABLE IF NOT EXISTS trip_stock_watch (player TEXT PRIMARY KEY,character TEXT,started TEXT,city TEXT)')
         self.db.execute('CREATE TABLE IF NOT EXISTS trip_stock_receipts (owner TEXT,id TEXT,PRIMARY KEY(owner,id))');self.db.commit()
         self.db.execute('CREATE TABLE IF NOT EXISTS trip_bank_scans (player TEXT,city TEXT,page TEXT,payload TEXT,PRIMARY KEY(player,city,page))');self.db.commit()
+        self.db.execute('CREATE TABLE IF NOT EXISTS trip_reservations (player TEXT,run INTEGER,city TEXT,key TEXT,item_id TEXT,quantity INTEGER,PRIMARY KEY(player,run,city,key))');self.db.commit()
     def rows(self,player):
         return [dict(json.loads(p),key=k,city=c) for c,k,p in self.db.execute('SELECT city,key,payload FROM trip_stock WHERE player=? ORDER BY city,key',(player,))]
+    def available_rows(self,player,own_run=None):
+        rows=self.rows(player);reserved={};totals={}
+        for run,city,key,uid,qty in self.db.execute('SELECT run,city,key,item_id,quantity FROM trip_reservations WHERE player=?',(player,)):
+            if run!=own_run:
+                reserved[(city,key,uid)]=reserved.get((city,key,uid),0)+qty;totals[(city,uid)]=totals.get((city,uid),0)+qty
+        for row in rows:
+            group=(row['city'],row['item_id']);qty=min(row['quantity'],reserved.get((row['city'],row['key'],row['item_id']),0))
+            totals[group]=totals.get(group,0)-qty;row['reserved']=qty;row['physical_quantity']=row['quantity'];row['quantity']-=qty
+        # A re-read may move/merge stacks. Reservations still hold that city's item quantity.
+        for row in rows:
+            group=(row['city'],row['item_id']);qty=min(row['quantity'],totals.get(group,0));totals[group]=totals.get(group,0)-qty
+            row['reserved']+=qty;row['quantity']-=qty
+        return rows
+    def reserve(self,player,run,lots):
+        # Lock allocation with validation and write in the same transaction.
+        self.db.execute('BEGIN IMMEDIATE')
+        try:
+            available={(r['city'],r['key']):r for r in self.available_rows(player,run)};new=[]
+            for lot in lots:
+                key=(lot['city'],lot['key']);row=available.get(key);qty=lot['quantity']
+                if type(qty) is not int or qty<0 or row is None or row['quantity']<qty or row['item_id']!=lot.get('item_id',row['item_id']) or lot.get('observed') and lot['observed']!=row.get('observed'):raise ValueError('Запас изменился или уже зарезервирован другой ходкой. Пересчитай план.')
+                row['quantity']-=qty;new.append((player,run,*key,row['item_id'],qty))
+            self.db.execute('DELETE FROM trip_reservations WHERE player=? AND run=?',(player,run))
+            self.db.executemany('INSERT INTO trip_reservations VALUES(?,?,?,?,?,?)',new);self.db.commit()
+        except Exception:self.db.rollback();raise
+    def release(self,player,run):
+        self.db.execute('DELETE FROM trip_reservations WHERE player=? AND run=?',(player,run));self.db.commit()
     def prepared(self,row):
         if not re.fullmatch(r'[A-Z0-9_@]+',row['item_id']) or type(row['quantity']) is not int or row['quantity']<0:raise ValueError('Неверный ресурс или количество')
         if row.get('price') is not None:
@@ -174,7 +202,7 @@ def consumption_changes(db,player,existing):
     for lot in existing:
         record=db.execute('SELECT payload FROM trip_stock WHERE player=? AND city=? AND key=?',(player,lot['city'],lot['key'])).fetchone()
         before=json.loads(record[0]) if record else None
-        if not before or any(before.get(k)!=lot.get(k) for k in ('item_id','quantity','observed')):
+        if not before or any(before.get(k)!=lot.get(k) for k in ('item_id','observed')) or before['quantity']!=lot.get('physical_quantity',lot['quantity']):
             raise ValueError('Запасы изменились после расчёта. Пересчитай ходку перед записью партии.')
         if not 0<=lot['used']<=before['quantity']:raise ValueError('Недостаточно запасов для списания')
         after=dict(before,quantity=before['quantity']-lot['used'],observed=datetime.now(timezone.utc).isoformat())

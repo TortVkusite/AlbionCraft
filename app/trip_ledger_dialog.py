@@ -19,10 +19,13 @@ class TripLedgerDialog(QDialog):
         layout=QVBoxLayout(self);bar=QHBoxLayout();layout.addLayout(bar)
         self.choose=QComboBox();bar.addWidget(self.choose,1);self.choose.currentIndexChanged.connect(self.load)
         add=QPushButton('Сохранить текущий план как ходку');add.setEnabled(current is not None);bar.addWidget(add);add.clicked.connect(self.create)
+        replan=QPushButton('Пересчитать по текущим запасам');bar.addWidget(replan);replan.clicked.connect(self.replan)
+        release=QPushButton('Освободить резерв');bar.addWidget(release);release.clicked.connect(self.release)
         note=QLabel('Суммы относятся ко всей строке, не к одной штуке. Заполняй фактические покупки, стоимость использованных запасов, выпуск и продажи. Пусто = неизвестно; 0 = подтверждённый ноль. Продажа — до комиссий. План сверки — денежный результат, без оценки возвратов и непроданных остатков. Уровни и банк здесь не изменяются.');note.setWordWrap(True);layout.addWidget(note)
         self.table=QTableWidget(0,6);self.table.setHorizontalHeaderLabels(['Этап / ресурс','План: шт.','План: сумма','Факт: шт.','Факт: сумма','Разница']);self.table.horizontalHeader().setStretchLastSection(True);layout.addWidget(self.table,1);self.table.itemChanged.connect(self.preview)
         add_line=QPushButton('Добавить ресурс / этап вне плана');layout.addWidget(add_line);add_line.clicked.connect(self.add_line)
         form=QFormLayout();layout.addLayout(form);self.fields={};self.expected={}
+        self.duration=QLineEdit();self.duration.setPlaceholderText('Сколько часов заняла продажа; пусто = неизвестно');form.addRow('Фактическое время продажи',self.duration)
         for key,title in [('station','Плата станции'),('other','Прочие расходы'),('sale_fees','Комиссии рынка, включая перевыставление')]:
             line=QHBoxLayout();field=QLineEdit();field.setPlaceholderText('Фактическая сумма');expected=QLabel();line.addWidget(field);line.addWidget(expected);form.addRow(title,line);self.fields[key]=field;self.expected[key]=expected;field.textChanged.connect(self.preview)
         self.closed=QCheckBox('Учёт партии завершён — записать результат в журнал');self.closed.setToolTip('Подтверди только после сверки всех расходов и продаж. Непроданные остатки не оценены: прибыль включает затраты на них.');layout.addWidget(self.closed);self.closed.toggled.connect(self.preview)
@@ -38,7 +41,24 @@ class TripLedgerDialog(QDialog):
         self.loading=False;self.load()
     def create(self):
         if self.current is None:return
-        run=self.store.create(self.player,self.current);self.current=None;self.sender().setEnabled(False);self.refresh(run)
+        run=self.store.create(self.player,self.current)
+        try:self.parent().stock_store.reserve(self.player,run,self.current.get('stock_lots',[]))
+        except ValueError as exc:
+            with self.store.db:self.store.db.execute('DELETE FROM trip_runs WHERE id=?',(run,))
+            self.summary.setText(str(exc));return
+        self.parent().active_run=run;self.current=None;self.sender().setEnabled(False);self.refresh(run)
+    def release(self):
+        if self.entry:self.parent().stock_store.release(self.player,self.entry['id']);self.summary.setText('Резерв освобождён. Исходный план сохранён.')
+    def replan(self):
+        if not self.entry:return
+        try:
+            facts=dict(self.facts(),closed=False);self.store.save(self.player,self.entry['id'],facts)
+            prefs=dict(self.entry['snapshot']['settings'])
+            if prefs.get('full_budget',True):
+                spent=sum((D(r['amount']) for r in facts['rows'] if r['kind']=='purchase' and r.get('amount')),D(0))
+                prefs['budget']=max(0,float(D(str(prefs.get('budget',0)))-spent))
+            self.parent().active_run=self.entry['id'];self.parent().apply_preferences(prefs);self.accept();self.parent().calculate()
+        except (ValueError,ArithmeticError) as exc:self.summary.setText(str(exc))
     def load(self,*args):
         if self.loading:return
         self.entry=next((e for e in self.entries if e['id']==self.choose.currentData()),None);self.loading=True
@@ -53,9 +73,10 @@ class TripLedgerDialog(QDialog):
                 self.table.setItem(n,col,cell)
         for key,field in self.fields.items():field.setText(str(facts.get(key,'') or ''));self.expected[key].setText('План: '+amount(self.entry['snapshot'][key]) if self.entry else '')
         self.closed.setChecked(bool(facts.get('closed')));self.loading=False;self.table.resizeColumnsToContents();self.preview()
+        self.duration.setText(str(facts.get('hours_to_sell','')))
     def facts(self):
         def text(value):return value.strip().replace(' ','').replace(',','.')
-        return dict(rows=[dict(kind=r['kind'],item_id=r['item_id'],quantity=text(self.table.item(n,3).text()),amount=text(self.table.item(n,4).text())) for n,r in enumerate(self.entry['snapshot']['rows'])],closed=self.closed.isChecked(),**{k:text(f.text()) for k,f in self.fields.items()})
+        return dict(rows=[dict(kind=r['kind'],item_id=r['item_id'],quantity=text(self.table.item(n,3).text()),amount=text(self.table.item(n,4).text())) for n,r in enumerate(self.entry['snapshot']['rows'])],closed=self.closed.isChecked(),hours_to_sell=text(self.duration.text()),**{k:text(f.text()) for k,f in self.fields.items()})
     def add_line(self):
         if not self.entry:return
         labels=list(KINDS.values());label,ok=QInputDialog.getItem(self,'Этап','Что учитывать?',labels,0,False)
@@ -85,7 +106,10 @@ class TripLedgerDialog(QDialog):
         except (ValueError,ArithmeticError) as exc:self.loading=False;self.summary.setText(str(exc))
     def save(self):
         if not self.entry:return
-        try:self.store.save(self.player,self.entry['id'],self.facts());self.refresh(self.entry['id']);self.summary.setText(self.summary.text()+'\nСохранено.')
+        try:
+            summary=self.store.save(self.player,self.entry['id'],self.facts())
+            if summary['closed']:self.parent().stock_store.release(self.player,self.entry['id'])
+            self.refresh(self.entry['id']);self.summary.setText(self.summary.text()+'\nСохранено.')
         except (ValueError,ArithmeticError) as exc:self.summary.setText('Не сохранено: '+str(exc))
     def done(self,result):
         if not getattr(self,'_closed',False):self.store.close();self._closed=True

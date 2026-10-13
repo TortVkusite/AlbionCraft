@@ -7,6 +7,7 @@ from .models import Ingredient, Recipe
 from .rules import rules
 from .i18n import game_locale
 from functools import lru_cache
+from .catalog_visibility import available,name_key
 
 def many(value):
     return value if isinstance(value, list) else [value] if isinstance(value, dict) else []
@@ -39,8 +40,9 @@ def _load_catalog(root,locale,stamps):
         for item in many(data.get(group)):
             first_recipe=len(recipes)
             uid = item.get('@uniquename', '')
-            if item.get('@showinmarketplace') == 'false' or item.get('@tier') not in tuple(str(n) for n in range(1,9)):
+            if not available(item) or item.get('@tier') not in tuple(str(n) for n in range(1,9)):
                 continue
+            if names.get(uid,uid)==uid and name_key(item) in names:names[uid]=names[name_key(item)]
             shop=item.get('@shopcategory','');sub=item.get('@shopsubcategory1','')
             category={'head':'armors','shoes':'armors'}.get(shop,shop)
             if shop=='crafting':category={'resources':'resources','refinedresources':'materials','alchemy':'reagents','fish':'fish','cityresources':'reagents'}.get(sub,'')

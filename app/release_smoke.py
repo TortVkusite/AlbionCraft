@@ -94,6 +94,22 @@ def check(output):
             assert islands[0]['selected']['profit']>islands[0]['plain']['profit']
             window.open_trip();window.open_island();window.show_market();app.processEvents()
             result['dashboard_island_subprocess']='ok'
+            from app.research_dialog import ResearchDialog
+            from app.island_layout import IslandLayoutDialog
+            from app.profile_dialog import ProfileDialog
+            for dialog in [ResearchDialog(window),IslandLayoutDialog(window.island_page),ProfileDialog(window)]:dialog.show();app.processEvents();dialog.accept()
+            from app.market_memory import MarketMemory
+            memory=MarketMemory(data_root()/'prices.sqlite');assert memory.active()=={};memory.close()
+            from app.profile_backup import backup,stage_restore
+            saved=data_root()/'test-backup.zip';backup(data_root(),saved);stage_restore(data_root(),saved)
+            restored=calculate('profile_data',dict(action='report',root=str(data_root()),path=str(data_root()/'diagnostic.json')))
+            assert restored and (data_root()/'diagnostic.json').is_file()
+            full=calculate('trip',dict(root=folder,stock_rows=[],buy='Fort Sterling',city='Thetford',prices=prices,histories=[],age=30,
+                joint=True,roots={recipe.item_id},recipes=[recipe],settings=settings,states={},day_bonus=D(0),rate=D(0),other=D(0),
+                multiplier=D(1),mastery=False,limits={recipe.item_id:20},depth='quote',horizon=0,share=10,
+                budget=1000,weight=1000,focus=100,repeat=True,objective='profit',full_budget=True,reserve=100,trip_fixed=1))
+            assert full['plans'][0]['cash_required']<=900
+            result['decisions_backup_full_cash']='ok'
             from app.regions import region_root
             assert region_root(data_root(),'west')!=data_root() and region_root(data_root(),'east')!=data_root()
             result['server_profiles']='ok'
@@ -103,6 +119,13 @@ def check(output):
             result['milp']='ok'
             reader=quantity_reader();reader(np.full((32,96,3),255,dtype=np.uint8))
             result['ocr']='ok'
+            from PIL import Image,ImageDraw,ImageFont
+            import io
+            sample=Image.new('RGB',(600,140),'white');draw=ImageDraw.Draw(sample);font=ImageFont.truetype('C:/Windows/Fonts/arial.ttf',28)
+            draw.text((20,20),'Бонус производства: Булавы',font=font,fill='black');draw.text((20,75),'+20%',font=font,fill='black');image=io.BytesIO();sample.save(image,format='PNG')
+            text=calculate('bonus_ocr',dict(image=image.getvalue()))
+            assert 'Булавы' in text and '20%' in text,text
+            result['bonus_cyrillic_ocr']='ok'
             window.close();app.processEvents()
             set_language('ru')
             result['assets']='ok' if (resource_root()/'app/assets/albioncraft.svg').is_file() else 'missing'

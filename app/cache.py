@@ -16,6 +16,8 @@ class Cache:
         return json.loads(row[1]) if row and time.time()-row[0]<ttl else None
 
     def put(self, key, rows):
+        from .market_memory import archive_volumes
+        if isinstance(rows,list):archive_volumes(self.db,[r for r in rows if isinstance(r,dict) and 'data' in r])
         self.db.execute('INSERT INTO requests(cache_key,fetched,payload) VALUES (?,?,?)',(key,time.time(),json.dumps(rows)))
         self.db.commit()
 
@@ -23,6 +25,9 @@ class Cache:
         self.db.close()
 
     def save_stream_orders(self,orders):
+        from .market_memory import initialize
+        initialize(self.db)
+        self.db.executemany('INSERT OR IGNORE INTO order_history VALUES(?,?,?,?,?,?,?,?)',[(o[0],o[1],o[2],o[3],o[4],o[5],o[6],o[7]) for o in orders])
         from datetime import datetime,timezone,timedelta
         cutoff=(datetime.now(timezone.utc)-timedelta(days=1)).isoformat()
         self.db.executemany('INSERT OR REPLACE INTO stream_orders VALUES(?,?,?,?,?,?,?,?,?)',orders)
@@ -39,6 +44,8 @@ class Cache:
         return list(result.values())
 
     def merge_prices(self, rows, ids, cities, qualities):
+        from .market_memory import archive_prices
+        archive_prices(self.db,rows)
         from .models import quote
         from datetime import datetime
         incoming={(r.get('item_id'),r.get('city'),r.get('quality')):r for r in rows if isinstance(r,dict)}

@@ -57,6 +57,10 @@ class TripDialog(QDialog):
         self.weight=NoWheelDouble();self.weight.setDecimals(2);self.weight.setRange(.01,1000000);self.weight.setValue(float(prefs.get('weight',1000)));self.weight.setSuffix(' кг')
         self.budget=NoWheelDouble();self.budget.setDecimals(0);self.budget.setRange(0,1e12);self.budget.setValue(float(prefs.get('budget',1000000)))
         self.budget.setToolTip('Бюджет только новых покупок. Уже имеющиеся ресурсы в него не входят; 0 = переработка только запасов.')
+        self.full_budget=QCheckBox('Бюджет включает все расходы');self.full_budget.setChecked(prefs.get('full_budget',True))
+        self.reserve=NoWheelDouble();self.reserve.setDecimals(0);self.reserve.setRange(0,1e12);self.reserve.setValue(prefs.get('reserve',0))
+        self.trip_fixed=NoWheelDouble();self.trip_fixed.setDecimals(2);self.trip_fixed.setRange(0,1e12);self.trip_fixed.setValue(prefs.get('trip_fixed',0))
+        self.budget.setToolTip('При включённом полном бюджете: доступное серебро на закупку, станцию, прочие расходы и размещение. Налог продажи удерживается из выручки. Резерв остаётся свободным.')
         self.focus=NoWheelInt();self.focus.setRange(0,30000);self.focus.setValue(int(prefs.get('focus',10000)))
         self.station=QLineEdit(str(prefs.get('station',parent.settings.get('station_rates',{}).get(self.craft.currentText(),''))));self.station.setPlaceholderText('Обязательно; 0 = бесплатно')
         self.other=NoWheelDouble();self.other.setRange(0,1e8);self.other.setDecimals(2);self.other.setValue(float(prefs.get('other',0)))
@@ -64,10 +68,10 @@ class TripDialog(QDialog):
         self.station.setToolTip('Тариф из игры: серебро за 100 питания. Калькулятор сам умножает его на питание рецепта; это не плата за один слиток.')
         self.multiplier=NoWheelDouble();self.multiplier.setRange(0,100);self.multiplier.setDecimals(2);self.multiplier.setValue(float(prefs.get('xp_multiplier',1)));self.multiplier.setSuffix(' ×')
         self.day_bonus=NoWheelDouble();self.day_bonus.setRange(0,200);self.day_bonus.setDecimals(1);self.day_bonus.setValue(float(prefs.get('day_bonus',0)));self.day_bonus.setSuffix(' %')
-        self.day_bonus.setToolTip('Дневной бонус производства выбранных ресурсов из игры. Добавляется к производственному бонусу города для всех выбранных этапов. 0 = без дневного бонуса. Если ручной RRR уже включает его, оставь 0.')
+        self.day_bonus.setToolTip('Ручной бонус производства добавляется к бонусу города для всех выбранных этапов и заменяет подтверждённые бонусы. 0 = использовать подтверждённые бонусы, если они включены. Если ручной RRR уже включает бонус, оставь 0.')
         bonuses=QWidget();bonus_layout=QHBoxLayout(bonuses);bonus_layout.setContentsMargins(0,0,0,0);bonus_layout.addWidget(self.multiplier);bonus_layout.addWidget(self.day_bonus)
         self.sale=QComboBox();self.sale.addItem('Заказ на продажу','order');self.sale.addItem('Быстрая продажа','instant');self.sale.setCurrentIndex(max(0,self.sale.findData(prefs.get('sale','order'))))
-        for n,(name,control) in enumerate([('Закупка',self.buy),('Переработка / продажа',self.craft),('Персонаж',self.player),('Свободный вес',self.weight),('Бюджет закупки',self.budget),('Доступный фокус',self.focus),('Станция: серебро / 100 питания',self.station),('Прочие расходы / выход',self.other),('Бонус XP / дневной бонус, %',bonuses),('Продажа',self.sale)]):
+        for n,(name,control) in enumerate([('Закупка',self.buy),('Переработка / продажа',self.craft),('Персонаж',self.player),('Свободный вес',self.weight),('Доступное серебро / бюджет',self.budget),('Доступный фокус',self.focus),('Станция: серебро / 100 питания',self.station),('Прочие расходы / выход',self.other),('Бонус XP / дневной бонус, %',bonuses),('Продажа',self.sale)]):
             grid.addWidget(QLabel(name),n//5*2,n%5);grid.addWidget(control,n//5*2+1,n%5)
         for col in range(5):grid.setColumnStretch(col,1)
         select=FlowLayout();layout.addLayout(select)
@@ -125,8 +129,12 @@ class TripDialog(QDialog):
         self.horizon=NoWheelInt();self.horizon.setRange(0,365);self.horizon.setValue(int(prefs.get('horizon',0)));self.horizon.setSpecialValueText('Без ограничения срока');self.horizon.setSuffix(' дн.')
         self.share=NoWheelDouble();self.share.setRange(.1,100);self.share.setValue(float(prefs.get('market_share',10)));self.share.setSuffix(' %')
         turnover_controls.addWidget(QLabel('Продать партию за:'));turnover_controls.addWidget(self.horizon);turnover_controls.addWidget(QLabel('Моя доля продаж рынка:'));turnover_controls.addWidget(self.share)
+        self.check_hours=NoWheelInt();self.check_hours.setRange(1,720);self.check_hours.setValue(prefs.get('check_hours',12));self.check_hours.setSuffix(' ч')
+        check_bar=QHBoxLayout();market_layout.addLayout(check_bar);check_bar.addWidget(QLabel('Вернусь проверить рынок через:'));check_bar.addWidget(self.check_hours)
+        self.relists=NoWheelInt();self.relists.setRange(0,20);self.relists.setValue(prefs.get('relists',1));check_bar.addWidget(QLabel('Перевыставить остаток, раз:'));check_bar.addWidget(self.relists)
         warning=QLabel('Ордеры — только увиденная страница из твоей игры, а не весь рынок; объём мог измениться. NATS и обычная котировка не подтверждают доступное количество. При заказе на продажу срок = количество / (продажи рынка в день × твоя доля). Это сценарий, не гарантия. Ограничение срока без истории запрещает продажу результата; быстрая продажа ограничивается увиденными заказами на покупку.');warning.setWordWrap(True);market_layout.addWidget(warning)
-        self.market_results=self.table(['Результат','Продать','Рынок: шт. / день','Срок при моей доле','Ограничение']);market_layout.addWidget(self.market_results,1)
+        self.market_results=self.table(['Результат','Продать','Рынок: шт. / день','Срок при моей доле','Быстрее / медленнее','Остаток к проверке','Плата перевыставлений','Ограничение']);market_layout.addWidget(self.market_results,1)
+        self.market_dialog.finished.connect(self.preferences)
         self.market_warnings=QLabel();self.market_warnings.setWordWrap(True);market_layout.addWidget(self.market_warnings)
         close=QPushButton('Закрыть');close.clicked.connect(self.market_dialog.accept);market_layout.addWidget(close)
         self.depth.currentIndexChanged.connect(self.invalidate);self.horizon.valueChanged.connect(self.invalidate);self.share.valueChanged.connect(self.invalidate)
@@ -154,6 +162,7 @@ class TripDialog(QDialog):
         self.timer=QTimer(self);self.timer.setInterval(1500);self.timer.timeout.connect(self.poll_prices)
         self.price_signature=self.market_signature();self.timer.start()
         self.redesign(outer,layout,grid,select,buttons,stock_controls,target,result_split)
+        self.full_budget.toggled.connect(self.invalidate);self.reserve.valueChanged.connect(self.invalidate);self.trip_fixed.valueChanged.connect(self.invalidate)
         fit_window(self)
         fit_window(self.market_dialog)
 
@@ -175,6 +184,8 @@ class TripDialog(QDialog):
         # The original grid contains label rows followed by control rows.
         labels=fields[:5];values=fields[5:10];extra_labels=fields[10:15];extra_values=fields[15:20]
         for label,value in zip(labels,values):left.addWidget(label);left.addWidget(value)
+        left.addWidget(self.full_budget);left.addWidget(QLabel('Резерв серебра'));left.addWidget(self.reserve)
+        left.addWidget(QLabel('Расходы за всю ходку'));left.addWidget(self.trip_fixed)
         section(left,'Фокус и продажа')
         for index in (0,1,4):left.addWidget(extra_labels[index]);left.addWidget(extra_values[index])
         advanced=fold(left,'Дополнительные настройки')
@@ -192,6 +203,9 @@ class TripDialog(QDialog):
         left.addStretch()
         right=QWidget();body=QVBoxLayout(right);body.setContentsMargins(8,0,0,0);horizontal.addWidget(right,1)
         self.metrics=Metrics(['Прибыль','Новая закупка','Вес','Фокус']);body.addWidget(self.metrics)
+        self.evidence=QLabel();self.evidence.setWordWrap(True);body.addWidget(self.evidence)
+        self.evidence.setTextFormat(Qt.RichText)
+        self.evidence.linkActivated.connect(lambda _:QMessageBox.information(self,'Риски и безубыточность',self.evidence.toolTip()))
         toolbar=FlowLayout();body.addLayout(toolbar);move_widgets(buttons,toolbar)
         self.calculate_button.setObjectName('primary')
         body.addWidget(self.status)
@@ -207,7 +221,9 @@ class TripDialog(QDialog):
         t=QTableWidget(0,len(headers));t.setHorizontalHeaderLabels(headers);t.setEditTriggers(QAbstractItemView.NoEditTriggers);t.verticalHeader().hide();t.horizontalHeader().setStretchLastSection(True);readable_table(t);return t
     def market_signature(self):
         path=self.root/'prices.sqlite'
-        return (id(self.owner.last),path.stat().st_mtime_ns if path.exists() else 0,self.owner.local_enabled.isChecked(),repr(self.owner.settings.get('general')),repr(self.owner.settings.get('profiles')),self.owner.settings.get('premium'),repr(self.relevant_stock()))
+        from .market_memory import bonus_settings
+        bonuses=bonus_settings(self.root,self.owner.settings)['production_bonuses']
+        return (id(self.owner.last),path.stat().st_mtime_ns if path.exists() else 0,self.owner.local_enabled.isChecked(),repr(self.owner.settings.get('general')),repr(self.owner.settings.get('profiles')),self.owner.settings.get('premium'),repr(self.relevant_stock()),repr(bonuses))
     def poll_prices(self):
         signature=self.market_signature()
         if signature!=self.price_signature:
@@ -223,7 +239,7 @@ class TripDialog(QDialog):
     def relevant_stock(self):
         if not self.use_stock.isChecked():return []
         inputs={i.item_id for recipe in self.production_recipes() for i in recipe.ingredients}
-        return [r for r in self.stock_store.rows(self.player.text().strip() or 'Мой персонаж') if r['item_id'] in inputs and ((r.get('kind')=='base' and r['city']==self.craft.currentText()) or (r.get('kind')=='bought' and r['city']==self.buy.currentText()))]
+        return [r for r in self.stock_store.available_rows(self.player.text().strip() or 'Мой персонаж',getattr(self,'active_run',None)) if r['item_id'] in inputs and ((r.get('kind')=='base' and r['city']==self.craft.currentText()) or (r.get('kind')=='bought' and r['city']==self.buy.currentText()))]
     def open_stock(self):
         from .stock_dialog import StockDialog
         dialog=StockDialog(self,self.root,self.player.text().strip() or 'Мой персонаж',self.buy.currentText(),self.craft.currentText(),self.recipes)
@@ -234,7 +250,8 @@ class TripDialog(QDialog):
         # observations for unrelated goods must not erase a completed plan.
         rows=sorted((p['item_id'],p['city'],p.get('quality',1),str(p.get('sell_price_min',0)),str(p.get('buy_price_max',0)),str(p.get('sell_price_min_date','')),str(p.get('buy_price_max_date','')),repr(p.get('local_observations',{})))
             for p in prices if p['item_id'] in outputs or (p['item_id'] in inputs and p['city'] in (self.buy.currentText(),self.craft.currentText())))
-        return (rows,repr(sorted(histories,key=lambda h:(h['item_id'],h['location'],h['quality']))),repr(self.owner.settings.get('general')),repr(self.owner.settings.get('profiles')),self.owner.settings.get('premium'),self.owner.local_enabled.isChecked(),repr(self.relevant_stock()))
+        from .market_memory import bonus_settings
+        return (rows,repr(sorted(histories,key=lambda h:(h['item_id'],h['location'],h['quality']))),repr(self.owner.settings.get('general')),repr(self.owner.settings.get('profiles')),self.owner.settings.get('premium'),self.owner.local_enabled.isChecked(),repr(self.relevant_stock()),repr(bonus_settings(self.root,self.owner.settings)['production_bonuses']))
     def current_fingerprint(self):
         selected=self.production_recipes();ids={r.item_id for r in selected}|{i.item_id for r in selected for i in r.ingredients}
         prices,histories=market_snapshot(self.owner,self.root,ids)
@@ -254,7 +271,7 @@ class TripDialog(QDialog):
     def profile_changed(self,*args):
         self.states=self.store.states(self.player.text().strip() or 'Мой персонаж');self.refresh_profile();self.invalidate()
     def invalidate(self,*args):
-        if hasattr(self,'metrics'):self.metrics.update_values(['—']*4)
+        if hasattr(self,'metrics'):self.metrics.update_values(['—']*4);self.evidence.clear()
         self.record_button.setEnabled(False);self.plans=[];self.progress=[]
         self.audit_options=[];self.audit_button.setEnabled(False)
         for label,t in self.views:label.setText('Параметры изменились — нужен расчёт.');t.setRowCount(0)
@@ -263,6 +280,9 @@ class TripDialog(QDialog):
         self.owner.settings['trip_optimizer']=dict(player=self.player.text().strip() or 'Мой персонаж',buy=self.buy.currentText(),craft=self.craft.currentText(),weight=self.weight.value(),budget=self.budget.value(),focus=self.focus.value(),station=self.station.text(),other=self.other.value(),xp_multiplier=self.multiplier.value(),day_bonus=self.day_bonus.value(),sale=self.sale.currentData(),family=self.family.currentData(),mastery=self.mastery.isChecked(),any_age=self.age.isChecked(),repeat=self.repeat.isChecked(),chain=self.chain.isChecked(),objective_mode='roi' if self.roi_target.isChecked() else 'profit',selected=[r.item_id for r in self.selected_recipes()],limits={k:v.value() for k,v in self.caps.items() if v.value()})
         self.owner.settings['trip_optimizer']['use_stock']=self.use_stock.isChecked()
         self.owner.settings['trip_optimizer'].update(depth=self.depth.currentData(),horizon=self.horizon.value(),market_share=self.share.value(),search=self.search.text())
+        self.owner.settings['trip_optimizer'].update(full_budget=self.full_budget.isChecked(),reserve=self.reserve.value(),trip_fixed=self.trip_fixed.value())
+        self.owner.settings['trip_optimizer']['check_hours']=self.check_hours.value()
+        self.owner.settings['trip_optimizer']['relists']=self.relists.value()
         self.owner.persist_view()
     def open_market(self):
         rows={c.recipe.item_id:[c,0] for c in self.audit_options if c.row.get('root',True)}
@@ -274,13 +294,18 @@ class TripDialog(QDialog):
         self.market_results.setRowCount(len(rows))
         for n,(c,qty) in enumerate(rows.values()):
             forecast=turnover(qty,c.row.get('demand',{}),self.share.value())
+            from .market_memory import sale_scenario
+            scenario=sale_scenario(qty,forecast['per_day'],self.share.value(),self.check_hours.value())
             duration='По заказам на покупку' if c.row.get('sale_mode')=='instant' else 'Неизвестно' if forecast['per_day'] is None else 'Нет продаж' if forecast['per_day']==0 else decimal_text(forecast['days'],1)+' дн.'
-            values=[c.recipe.name,qty,decimal_text(forecast['per_day'],1),duration,c.row.get('sale_limit','Без ограничения')]
+            span='Неизвестно' if scenario['days'] is None else decimal_text(scenario['fast_days'],1)+' / '+decimal_text(scenario['slow_days'],1)+' дн.'
+            remaining=scenario['remaining'];setup=c.plain.get('setup_fee');sale=c.sales.get(getattr(self,'plan_city',self.craft.currentText()))
+            relist=D(0) if c.row.get('sale_mode')=='instant' or not self.relists.value() else remaining*sale['price']*setup/c.plain['sale']*self.relists.value() if remaining is not None and sale and setup is not None else None
+            values=[c.recipe.name,qty,decimal_text(forecast['per_day'],1),duration,span,decimal_text(remaining,0),money(relist),c.row.get('sale_limit','Без ограничения')]
             for col,value in enumerate(values):self.market_results.setItem(n,col,QTableWidgetItem(str(value)))
         self.market_results.resizeColumnsToContents()
         labels={'purchase':'Нет количества для закупки','sale':'Нет количества для быстрой продажи','history':'Нет истории продаж'}
         warnings=[f"{labels[kind]}: {item_name(uid,False)} • {city}" for kind,uid,city in getattr(self,'depth_warnings',[]) if city in (self.buy.currentText(),self.craft.currentText())]
-        self.market_warnings.setText('\n'.join(warnings[:5])+ (f'\nЕщё {len(warnings)-5} — полный список в подсказке.' if len(warnings)>5 else '') or 'Нет предупреждений о количестве. Увиденные ордера могут быть частью рынка.')
+        self.market_warnings.setText(('\n'.join(warnings[:5])+ (f'\nЕщё {len(warnings)-5} — полный список в подсказке.' if len(warnings)>5 else '') or 'Нет предупреждений о количестве. Увиденные ордера могут быть частью рынка.')+'\nБыстрее / медленнее: моя скорость продаж ×2 / ÷2. Сценарии, без вероятностей. Остаток предполагает сохранение текущей доли рынка; новые конкуренты могут увеличить ожидание.'+'\nПеревыставления: весь остаток к проверке × текущая цена × плата размещения × число раз. Это отдельный сценарий расходов; запиши фактическую сумму в сверку.')
         self.market_warnings.setToolTip('\n'.join(warnings));self.market_dialog.exec()
     def open_ledger(self):
         from .trip_ledger import plan_snapshot
@@ -291,9 +316,12 @@ class TripDialog(QDialog):
             if plan['lines']:current=plan_snapshot(plan,self.plan_buy,self.plan_city,self.owner.settings.get('trip_optimizer',{}))
         dialog=TripLedgerDialog(self,self.root,self.player.text().strip() or 'Мой персонаж',current);dialog.exec()
     def apply_preferences(self,prefs):
-        widgets=[self.buy,self.craft,self.player,self.weight,self.budget,self.focus,self.station,self.other,self.multiplier,self.day_bonus,self.sale,self.family,self.search,self.mastery,self.age,self.repeat,self.chain,self.use_stock,self.depth,self.horizon,self.share,self.roi_target,self.cash_target,self.choices,*self.caps.values()]
+        widgets=[self.full_budget,self.reserve,self.trip_fixed,self.buy,self.craft,self.player,self.weight,self.budget,self.focus,self.station,self.other,self.multiplier,self.day_bonus,self.sale,self.family,self.search,self.mastery,self.age,self.repeat,self.chain,self.use_stock,self.depth,self.horizon,self.share,self.roi_target,self.cash_target,self.choices,*self.caps.values()]
         for w in widgets:w.blockSignals(True)
         try:
+            self.full_budget.setChecked(prefs.get('full_budget',True));self.reserve.setValue(prefs.get('reserve',0));self.trip_fixed.setValue(prefs.get('trip_fixed',0))
+            self.check_hours.setValue(prefs.get('check_hours',12))
+            self.relists.setValue(prefs.get('relists',1))
             for control,key,default in [(self.buy,'buy','Fort Sterling'),(self.craft,'craft','Thetford')]:control.setCurrentText(prefs.get(key,default))
             self.player.setText(prefs.get('player','Мой персонаж'));self.station.setText(str(prefs.get('station','')));self.search.setText(prefs.get('search',''))
             for control,key,default in [(self.weight,'weight',1000),(self.budget,'budget',1000000),(self.focus,'focus',10000),(self.other,'other',0),(self.multiplier,'xp_multiplier',1),(self.day_bonus,'day_bonus',0),(self.horizon,'horizon',0),(self.share,'market_share',10)]:control.setValue(prefs.get(key,default))
@@ -344,7 +372,9 @@ class TripDialog(QDialog):
         self.profile_changed();self.preferences()
         ids={r.item_id for r in selected}|{i.item_id for r in selected for i in r.ingredients};prices,histories=market_snapshot(self.owner,self.root,ids)
         self.plan_fingerprint=self.fingerprint(prices,histories);self.snapshot_time=datetime.now().strftime('%d.%m %H:%M')
-        self.plan_settings=dict(self.owner.settings,sale_mode=self.sale.currentData())
+        from .market_memory import bonus_settings
+        self.plan_settings=dict(bonus_settings(self.root,self.owner.settings),sale_mode=self.sale.currentData())
+        if self.day_bonus.value():self.plan_settings['production_bonuses']={}
         self.plan_city=self.craft.currentText();self.plan_buy=self.buy.currentText();self.plan_player=self.player.text().strip() or 'Мой персонаж'
         limits={uid:box.value() for uid,box in self.caps.items() if box.value()}
         joint=self.chain.isChecked() or self.use_stock.isChecked() or self.depth.currentData()!='quote' or self.horizon.value()>0
@@ -359,6 +389,7 @@ class TripDialog(QDialog):
         self.start_states={k:dict(v) for k,v in self.states.items()};self.recorded=False
         self.price_signature=self.market_signature()
         self.status.setText('Подготавливаю ресурсы и подбираю количества под вес, бюджет и фокус…')
+        payload.update(full_budget=self.full_budget.isChecked(),reserve=self.reserve.value(),trip_fixed=self.trip_fixed.value())
         self.worker=ProcessWorker('trip',payload,self,timeout=90)
         self.cancel_button.setEnabled(True)
         self.calculate_button.setEnabled(False);self.fetch_button.setEnabled(False);self.set_inputs_enabled(False)
@@ -369,6 +400,7 @@ class TripDialog(QDialog):
         if self.worker and self.worker.isRunning():
             self.worker.requestInterruption();self.cancel_button.setEnabled(False);self.status.setText('Расчёт отменяется…')
     def set_inputs_enabled(self,enabled):
+        for w in [self.full_budget,self.reserve,self.trip_fixed]:w.setEnabled(enabled)
         for w in [self.buy,self.craft,self.player,self.weight,self.budget,self.focus,self.station,self.other,self.multiplier,self.day_bonus,self.sale,self.choices,self.mastery,self.age,self.repeat,self.chain,self.cash_target,self.roi_target,self.use_stock,self.stock_button,self.depth,self.horizon,self.share,self.market_button,self.ledger_button,self.preset_button,*self.selection_buttons]:w.setEnabled(enabled)
     @Slot()
     def worker_finished(self):
@@ -438,6 +470,27 @@ class TripDialog(QDialog):
             plan=self.plans[self.tabs.currentIndex()];self.metrics.update_values([money(plan['profit']),money(plan['purchase']),decimal_text(plan['weight'])+' кг',money(plan['focus'])])
         if not self.plans:return
         n=self.tabs.currentIndex();plan=self.plans[n];progress=self.progress[n];goods=shopping(plan)
+        if getattr(self,'active_run',None) is not None:
+            signature=str(self.active_run)+repr([(l['candidate'].recipe.item_id,l['operations'],l['focused']) for l in plan['lines']])+repr(plan.get('existing',[]))
+            if signature!=getattr(self,'revision_signature',None):
+                from .trip_ledger import TripLedger,plan_snapshot
+                snapshot=plan_snapshot(plan,self.plan_buy,self.plan_city,self.owner.settings.get('trip_optimizer',{}));ledger=TripLedger(self.root/'player.sqlite')
+                try:
+                    self.stock_store.reserve(self.plan_player,self.active_run,snapshot['stock_lots']);ledger.revise(self.plan_player,self.active_run,snapshot);self.revision_signature=signature
+                except ValueError as exc:self.status.setText(str(exc));self.record_button.setEnabled(False)
+                finally:ledger.close()
+        text='Серебро на всю операцию: '+money(plan.get('cash_required',0))+' • останется: '+money(plan.get('cash_left',0))+' • резерв: '+money(plan.get('reserve',0))
+        text+='\nСценарий: закупка дороже на 5%, чистая выручка ниже на 5% → прибыль '+money(plan.get('adverse_profit',0))+'. Это проверка устойчивости, не прогноз.'
+        if plan.get('break_even_sale_factor') is not None:text+='\nБезубыточность: '+decimal_text(plan['break_even_sale_factor']*100,1)+'% текущих цен продажи всех результатов, при неизменных затратах.'
+        from .trip_ledger import TripLedger
+        from .market_memory import calibration
+        ledger=TripLedger(self.root/'player.sqlite')
+        try:cal=calibration(ledger.entries(self.plan_player),self.plan_buy,self.plan_city)
+        finally:ledger.close()
+        if cal['factor'] is not None:text+='\nФакт / план по закрытым ходкам: '+decimal_text(cal['factor']*100,1)+'% • наблюдений: '+str(cal['count'])+' • ошибка последовательной проверки: '+money(cal['backtest_mae'])+'. Будущая прибыль может отличаться.'
+        if plan.get('limiting'):text+='\nОграничения: '+', '.join(plan['limiting'])
+        if plan.get('versus_stock_sale') is not None:text+='\nПереработка запасов вместо быстрой продажи: '+money(plan['versus_stock_sale'])+' серебра к результату.'
+        self.evidence.setToolTip(text);self.evidence.setText(text.split('\n')[0]+'<br><a style="color:#75d7c3" href="details">Риски и безубыточность</a>')
         existing=plan.get('existing',[]);self.shopping_table.setRowCount(len(goods)+len(existing))
         for row,(uid,part) in enumerate(goods.items()):
             for col,value in enumerate(['Купить: '+item_name(uid,False),part['quantity'],money(part['price']),money(part.get('cost',D(part['price'])*part['quantity'])),decimal_text(part['returned'])]):
@@ -507,6 +560,7 @@ class TripDialog(QDialog):
             self.store.record(self.plan_player,payload,progress['states'])
         except ValueError as exc:self.status.setText(str(exc));self.record_button.setEnabled(False);return
         self.recorded=True;self.record_button.setEnabled(False)
+        if getattr(self,'active_run',None) is not None:self.stock_store.release(self.plan_player,self.active_run)
         self.status.setText('Партия записана, XP обновлён, взятые запасы списаны. Прочитай банк заново для фактических возвратов. Фактическую прибыль запиши после продаж.');self.states=progress['states'];self.refresh_profile()
     def done(self,result):
         if self.worker and self.worker.isRunning():

@@ -24,6 +24,11 @@ AlbionCraft не ограничивает изменение библиотек 
 [Qt 6.11](https://download.qt.io/archive/qt/6.11/) и
 [PySide 6.11](https://download.qt.io/official_releases/QtForPython/pyside6/).
 
+Модель Cyrillic PP-OCRv5 для чтения бонусов хранится в `app/assets/ocr` вместе
+с Apache-2.0, источником и SHA256. Она взята из RapidAI/RapidOCR; исходный проект
+[PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR). Модель работает локально
+и не относится к MIT-коду AlbionCraft.
+
 Npcap не включён в архив. По запросу пользователя приложение загружает официальный
 установщик и открывает мастер; его отдельная лицензия применяется при установке.
 AlbionCraft — независимый проект, не официальный продукт Sandbox Interactive.

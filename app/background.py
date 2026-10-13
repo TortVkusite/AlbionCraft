@@ -78,9 +78,24 @@ def task(kind, data):
     if kind == 'trip':
         from .trip_task import calculate_trip
         return calculate_trip(data)
+    if kind == 'bonus_ocr':
+        from .research_dialog import bonus_ocr
+        return bonus_ocr(data)
+    if kind == 'profile_data':
+        from .profile_backup import backup,stage_restore,diagnostic
+        import json
+        if data['action']=='backup':backup(data['root'],data['path'])
+        elif data['action']=='restore':
+            stage_restore(data['root'],data['path']);return 'Восстановление подготовлено. Закрой AlbionCraft через «Выйти» и запусти снова.'
+        elif data['action']=='report':Path(data['path']).write_text(json.dumps(diagnostic(data['root']),ensure_ascii=False,indent=2),encoding='utf-8')
+        else:raise ValueError('Неизвестная операция с данными')
+        return 'Сохранено.'
     if kind == 'island':
         from .island import calculate_islands
         return calculate_islands(data)
+    if kind == 'island_layout':
+        from .island_layout import solve_layout
+        return solve_layout(data)
     if kind == 'builds':
         from .builds import evaluate
         context={}

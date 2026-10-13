@@ -24,11 +24,11 @@ def plan_snapshot(plan,buy,craft,settings=None):
         for uid,part in goods.items():
             if part['returned']:add('leftover',uid,part['returned'])
     station=sum((l['calc']['station']*l['operations'] for l in plan['lines']),D(0))
-    other=sum((l['calc']['fixed']*l['operations'] for l in plan['lines']),D(0))
+    other=sum((l['calc']['fixed']*l['operations'] for l in plan['lines']),D(0))+plan.get('trip_fixed',D(0))
     fees=sum((l['calc']['fees']*l['operations'] for l in plan['lines']),D(0))
     revenue=plan.get('revenue',sum(((l['calc']['sale']-l['calc']['fees'])*l['operations'] for l in plan['lines']),D(0)))
     cash_profit=revenue-plan['purchase']-plan.get('stock_value',0)-station-other
-    return dict(buy=buy,craft=craft,profit=str(cash_profit),model_profit=str(plan['profit']),purchase=str(plan['purchase']),stock=str(plan.get('stock_value',0)),revenue=str(revenue),station=str(station),other=str(other),sale_fees=str(fees),rows=list(rows.values()),settings=settings or {},created=datetime.now(timezone.utc).isoformat())
+    return dict(buy=buy,craft=craft,profit=str(cash_profit),model_profit=str(plan['profit']),purchase=str(plan['purchase']),stock=str(plan.get('stock_value',0)),revenue=str(revenue),station=str(station),other=str(other),sale_fees=str(fees),rows=list(rows.values()),settings=settings or {},stock_lots=[dict(city=s['city'],key=s['key'],item_id=s['item_id'],observed=s.get('observed'),quantity=s['used']) for s in plan.get('existing',[])],created=datetime.now(timezone.utc).isoformat())
 
 
 def actual_summary(snapshot,facts):
@@ -69,6 +69,10 @@ class TripLedger:
         self.db=sqlite3.connect(path,timeout=10)
         self.db.execute('CREATE TABLE IF NOT EXISTS trip_runs (id INTEGER PRIMARY KEY,player TEXT,stamp TEXT,snapshot TEXT,facts TEXT)')
         self.db.execute('CREATE TABLE IF NOT EXISTS journal (id INTEGER PRIMARY KEY,stamp TEXT,player TEXT,payload TEXT)');self.db.commit()
+        self.db.execute('CREATE TABLE IF NOT EXISTS trip_run_revisions (id INTEGER PRIMARY KEY,run INTEGER,player TEXT,stamp TEXT,snapshot TEXT)');self.db.commit()
+    def revise(self,player,run,snapshot):
+        if not self.db.execute('SELECT 1 FROM trip_runs WHERE id=? AND player=?',(run,player)).fetchone():raise ValueError('Ходка не найдена')
+        with self.db:self.db.execute('INSERT INTO trip_run_revisions(run,player,stamp,snapshot) VALUES(?,?,?,?)',(run,player,datetime.now(timezone.utc).isoformat(),json.dumps(snapshot,ensure_ascii=False)))
     def create(self,player,snapshot):
         with self.db:
             return self.db.execute('INSERT INTO trip_runs(player,stamp,snapshot,facts) VALUES(?,?,?,?)',(player,datetime.now(timezone.utc).isoformat(),json.dumps(snapshot,ensure_ascii=False),json.dumps({}))).lastrowid
@@ -79,15 +83,20 @@ class TripLedger:
         if not row or kind not in ('purchase','stock','production','sale','leftover') or not re.fullmatch(r'[A-Z0-9_@]+',uid):raise ValueError('Неверная строка ходки')
         snapshot=json.loads(row[0]);facts=json.loads(row[1])
         if any(r['kind']==kind and r['item_id']==uid for r in snapshot['rows']):raise ValueError('Эта строка уже есть; измени её количество и сумму')
+        snapshot.setdefault('original_rows',list(snapshot['rows']))
         snapshot['rows'].append(dict(kind=kind,item_id=uid,quantity='0',amount='0' if kind in ('purchase','stock','sale') else None));facts['closed']=False
         with self.db:
             self.db.execute('UPDATE trip_runs SET snapshot=?,facts=? WHERE id=? AND player=?',(json.dumps(snapshot,ensure_ascii=False),json.dumps(facts,ensure_ascii=False),run_id,player))
             linked=[i for i,payload in self.db.execute('SELECT id,payload FROM journal WHERE player=?',(player,)) if json.loads(payload).get('trip_run_id')==run_id]
             for i in linked:self.db.execute('DELETE FROM journal WHERE id=?',(i,))
     def save(self,player,run_id,facts):
+        if facts.get('hours_to_sell') not in (None,''):
+            hours=D(str(facts['hours_to_sell']))
+            if not hours.is_finite() or hours<0:raise ValueError('Неверное время продажи')
         row=self.db.execute('SELECT snapshot FROM trip_runs WHERE id=? AND player=?',(run_id,player)).fetchone()
         if not row:raise ValueError('Ходка не найдена')
         snapshot=json.loads(row[0]);summary=actual_summary(snapshot,facts)
+        if summary['closed']:facts=dict(facts,completed_at=facts.get('completed_at') or datetime.now(timezone.utc).isoformat())
         if facts.get('closed') and not summary['closed']:raise ValueError('Заполни все фактические значения. Для отсутствующего количества и расходов введи 0.')
         with self.db:
             self.db.execute('UPDATE trip_runs SET facts=? WHERE id=? AND player=?',(json.dumps(facts,ensure_ascii=False),run_id,player))

@@ -6,7 +6,8 @@
 4. Check the age and source of quotes. **Unknown** means missing information;
    **≤** marks an upper bound before unknown expenses.
 5. Open **Trips** in the left sidebar, choose buying and refining cities, available carry weight,
-   purchase budget and resources. Enter the station fee in silver per 100 nutrition.
+   available silver, reserve and resources. The default full cash budget includes
+   station charges and listing fees. Enter the station fee in silver per 100 nutrition.
    The station fee is already calculated: do not add it again under other costs.
 6. Choose profit in silver or ROI and run **Find maximum profit**. Compare the
    **Without Focus** and **Allocate Focus** plans. Review the shopping list,
@@ -44,6 +45,9 @@ Filters, exclusions, language and haul presets are saved. Personal character,
 container and preset names keep the spelling you entered.
 
 ## Updating and personal data
+
+For background operation, price history, production bonuses, reservations,
+island planning and backups, see [Local decision tools](DECISION_TOOLS.md).
 
 For farming, open **Island**, choose the city, product and number of plots.
 Set Premium, mastery, specialization and available Focus; check feed per animal.

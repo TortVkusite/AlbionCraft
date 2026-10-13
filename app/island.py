@@ -27,7 +27,7 @@ def estimate(product,settings,prices,focused=0):
     missing=[]
     if seed is None:missing.append(product['id'])
     if sale is None:missing.append(product['product'])
-    if product['kind']=='animals':
+    if product['kind'] in ('animals','wild'):
         food,food_status=price(product['food'],'sell_price_min');food_amount=D(str(settings.get('food_amount',product['food_amount'])))
         if not food_amount.is_finite() or food_amount<0:raise ValueError('Некорректное количество корма')
         if food is None and food_amount:missing.append(product['food'])
@@ -36,10 +36,10 @@ def estimate(product,settings,prices,focused=0):
     actions=product['actions'];focus=focused*cost*actions
     bonus=D('.1') if product['product'] in farming_data()['bonuses'].get(city,[]) else D(0)
     output=D(count)*D(product['yield_min']+product['yield_max'])/2
-    if product['kind']!='animals':output*=D(2) if premium else D(1);output*=1+bonus
+    if product['kind'] not in ('animals','wild'):output*=D(2) if premium else D(1);output*=1+bonus
     returned=D(count)*D(product['seed_return'])+D(focused)*D(product['focus_bonus'])*actions
     replacement=max(D(count)-returned,D(0));surplus=max(returned-D(count),D(0))
-    hours=D(str(product['hours']))/(2 if premium and product['kind']=='animals' else 1)
+    hours=D(str(product['hours']))/(2 if premium and product['kind'] in ('animals','wild') else 1)
     base=dict(count=count,output=output,returned=returned,replacement=replacement,surplus=surplus,hours=hours,
         focus=focus,focused=focused,focus_each=cost*actions,bonus=bonus,missing=missing,
         seed_price=seed,sale_price=sale,food_amount=food_amount*count,seed_status=seed_status,sale_status=sale_status,
@@ -84,4 +84,6 @@ def calculate_islands(data):
         for choice,value in zip(choices,result.x):
             if value>.5:allocated[id(valid[choice[0]])]=choice[1]
     for row in rows:row['selected']=estimate(row['product'],row['settings'],data['prices'],allocated.get(id(row),0))
+    from .island_planner import animal_risk
+    for row in rows:row['risk']=animal_risk(row['product'],row['selected'])
     return rows

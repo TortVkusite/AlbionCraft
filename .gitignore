@@ -30,9 +30,12 @@ research/*
 !research/names.json
 !research/achievements.json
 !research/full_gamedata.json
+!research/farmingmodifiers.json
 !research/README.md
 !research/check_trip_qol_ui.py
 !research/check_trip_ui.py
 .pytest_cache/
 .coverage
+pending_restore/
+before-restore.zip
 Thumbs.db

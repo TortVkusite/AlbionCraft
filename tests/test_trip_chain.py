@@ -85,6 +85,15 @@ class ChainTests(unittest.TestCase):
         self.assertEqual(p['profit'],best);self.assertLessEqual(p['focus'],6)
         self.assertTrue(p['optimal'])
 
+    def test_full_cash_limit_matches_exhaustive_direct_operations(self):
+        raw=Ingredient('RAW',1,False)
+        c=Candidate(Recipe('FINAL','Final',0,(raw,)),D(3),D(1),dict(profit=D(4),station=D(2),sale=D(10),fees=D(1),fixed=D(1),setup_fee=D('.5')),None,None,D(1),[dict(ingredient=raw,price=D(3))],dict(profile=dict(rrr='0',focus_rrr='0'),input_weights={'RAW':D(1)},root=True,sell='Thetford',net_sale_factor=D('.9'),setup_factor=D('.05'),operation_other=D(1)),{'Thetford':dict(price=D(10))})
+        for available in (0,5,9,17,25,40):
+            expected=max([D(0)]+[D(n*3-2) for n in range(1,11) if D(n)*D('6.5')+2<=available])
+            plan=solve_chain([c],100,10,cash_budget=D(available),trip_fixed=D(2))
+            self.assertEqual(plan['profit'],expected)
+            self.assertLessEqual(plan.get('cash_required',0),available)
+
     def test_do_not_discard_unprofitable_intermediate_or_count_it_as_sale(self):
         p=solve_chain(self.tiny_options(mid_price=None),12,5)
         self.assertTrue(p['lines']);self.assertNotIn('MID',p['sold']);self.assertNotIn('MID',p['goods'])

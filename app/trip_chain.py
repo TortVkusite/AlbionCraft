@@ -41,6 +41,7 @@ def prepare_chain(recipes,prices,histories,buy,craft,settings,game,states,age_li
     options,rejected=candidates(recipes,temporary,histories,buy,craft,settings,game,states,None,station_rate,other,fame_multiplier,respect_mastery,limits,day_bonus)
     for c in options:
         c.row['net_sale_factor']=1-c.plain['fees']/c.plain['sale']
+        c.row['setup_factor']=c.plain.get('setup_fee',D(0))/c.plain['sale']
         c.row['operation_other']=other*c.recipe.output_count+D(c.recipe.recipe_silver)
         c.row['root']=c.recipe.item_id in (roots or {r.item_id for r in recipes})
         c.sales={city:dict(price=D(v)) for city in CITIES if (v:=valid(c.recipe.item_id,city,side)) is not None}
@@ -77,7 +78,7 @@ def ordered(options):
     for c in sorted(options,key=lambda c:(c.recipe.tier,c.recipe.enchantment,c.recipe.item_id)):visit(c)
     return list(done.values())
 
-def solve_chain(options,budget,weight,focus_budget=0,time_limit=10,repeat=True,objective_mode='profit',stock=()):
+def solve_chain(options,budget,weight,focus_budget=0,time_limit=10,repeat=True,objective_mode='profit',stock=(),cash_budget=None,trip_fixed=D(0)):
     import numpy as np
     from scipy.optimize import milp,Bounds,LinearConstraint
     budget=D(str(budget));weight=D(str(weight));focus_budget=int(focus_budget)
@@ -139,7 +140,23 @@ def solve_chain(options,budget,weight,focus_budget=0,time_limit=10,repeat=True,o
             sales[uid]=[(var(min(maximum*c.recipe.output_count,t['quantity']),-D(t['price'])*c.row['net_sale_factor']),D(t['price'])) for t in tiers]
             coeff={col:1 for col,price in sales[uid]};coeff.update({p:-c.recipe.output_count,f:-c.recipe.output_count});add(coeff,high=0)
             if c.row.get('sale_limit') is not None:add({col:1 for col,price in sales[uid]},high=c.row['sale_limit'])
+    trip_fixed=D(str(trip_fixed));trip_active=None
+    if not trip_fixed.is_finite() or trip_fixed<0:raise ValueError('Неверные расходы ходки')
+    if trip_fixed:
+        trip_active=var(1,trip_fixed);all_ops={col:1 for values in ops.values() for col in values[:2]}
+        add(all_ops|{trip_active:-sum(bounds[col] for col in all_ops)},high=0)
+        add({trip_active:1}|{col:-1 for col in all_ops},high=0)
     add({b:float(price/max(budget,D(1))) for uid,tiers in buys.items() for b,price in tiers},high=1 if budget else 0)
+    if cash_budget is not None:
+        cash_budget=D(str(cash_budget));trip_fixed=D(str(trip_fixed))
+        if not cash_budget.is_finite() or not trip_fixed.is_finite() or cash_budget<0 or trip_fixed<0:raise ValueError('Неверный бюджет всей операции')
+        cash={b:price for tiers in buys.values() for b,price in tiers}
+        for c in options:
+            p,f=ops[c.recipe.item_id][:2];fee=c.plain['station']+c.row.get('operation_other',D(0))
+            cash[p]=fee;cash[f]=fee
+            for col,price in sales.get(c.recipe.item_id,[]):cash[col]=price*c.row.get('setup_factor',D(0))
+        if trip_active is not None:cash[trip_active]=trip_fixed
+        add(cash,high=cash_budget)
     load_coeff={b:float(weights[uid]/weight) for uid,tiers in buys.items() for b,price in tiers}
     for s,col in owned:
         if s.get('transport'):load_coeff[col]=float(weights[s['item_id']]/weight)
@@ -236,14 +253,18 @@ def solve_chain(options,budget,weight,focus_budget=0,time_limit=10,repeat=True,o
         lines.append(dict(candidate=c,focused=flag,operations=n,quantity=out,calc=calc,purchase=allocated,weight=allocated_weight,sold=sell_qty,internal=consumed.get(uid,D(0))*fraction))
         revenue+=net;fees+=station+other
     profit=revenue-purchase-stock_value-fees
-    if abs(sum((l['calc']['profit']*l['operations'] for l in lines),D(0))-profit)>D('0.000001'):raise ValueError('Не сходится денежный баланс цепочки')
+    setup=sum((gross_sales.get(c.recipe.item_id,D(0))*c.row.get('setup_factor',D(0)) for c in options),D(0))
+    required=purchase+fees+setup+(trip_fixed if lines else D(0))
+    if cash_budget is not None and required>cash_budget+D('.0001'):raise ValueError('План превышает доступное серебро')
+    profit-=trip_fixed if lines else D(0)
+    if abs(sum((l['calc']['profit']*l['operations'] for l in lines),D(0))-profit-(trip_fixed if lines else D(0)))>D('0.000001'):raise ValueError('Не сходится денежный баланс цепочки')
     if profit<=0:
         empty=empty_plan();empty['optimal']=result.status==0
         empty['upper_bound']=max(D(0),D(str(-result.mip_dual_bound*scale))) if getattr(result,'mip_dual_bound',None) is not None else None
         return empty
     goods={uid:dict(quantity=n,price=costs[uid]/n,cost=costs[uid],levels=[dict(price=price,quantity=quantities[col]) for col,price in buys[uid] if quantities[col]],depth_known=levels[uid] is not None,returned=max(D(0),stock.get(uid,D(0)))) for uid,n in purchased.items()}
     bound=D(str(-result.mip_dual_bound*scale)) if getattr(result,'mip_dual_bound',None) is not None else None
-    return dict(chain=True,repeat=repeat,lines=lines,goods=goods,sold=sold,gross_sales=gross_sales,stocks=stock,purchase=purchase,stock_value=stock_value,basis=purchase+stock_value,existing=existing,weight=load,focus=used,profit=profit,revenue=revenue,
+    return dict(chain=True,repeat=repeat,lines=lines,goods=goods,sold=sold,gross_sales=gross_sales,stocks=stock,purchase=purchase,stock_value=stock_value,basis=purchase+stock_value,existing=existing,weight=load,focus=used,profit=profit,revenue=revenue,cash_required=required,setup_fee=setup,trip_fixed=trip_fixed,
         optimal=result.status==0,upper_bound=max(profit,bound) if bound is not None else None,message=result.message)
 
 def empty_plan():

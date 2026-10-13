@@ -1,7 +1,7 @@
 {
   "sources": [
     "https://albiononline.com/news/guide-farming",
-    "https://github.com/ao-data/ao-bin-dumps"
+    "https://github.com/ao-data/ao-bin-dumps/blob/master/farmingmodifiers.json"
   ],
   "products": [
     {
@@ -200,6 +200,22 @@
       "tier": 8
     },
     {
+      "id": "T8_FARM_DRAKE_BABY",
+      "product": "T8_FARM_DRAKE_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 668.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.004",
+      "focus_base": 1000,
+      "actions": 14,
+      "food": "T3_FARM_HORSE_GROWN",
+      "food_amount": "868.8",
+      "offspring_amount": 1,
+      "tier": 8
+    },
+    {
       "id": "T3_FARM_OX_BABY",
       "product": "T3_FARM_OX_GROWN",
       "kind": "animals",
@@ -212,6 +228,7 @@
       "actions": 1,
       "food": "T1_CARROT",
       "food_amount": "10.0",
+      "offspring_amount": 1,
       "tier": 3
     },
     {
@@ -227,6 +244,7 @@
       "actions": 2,
       "food": "T1_CARROT",
       "food_amount": "16.0",
+      "offspring_amount": 1,
       "tier": 4
     },
     {
@@ -242,6 +260,7 @@
       "actions": 3,
       "food": "T1_CARROT",
       "food_amount": "31.0",
+      "offspring_amount": 1,
       "tier": 5
     },
     {
@@ -257,6 +276,7 @@
       "actions": 4,
       "food": "T1_CARROT",
       "food_amount": "69.0",
+      "offspring_amount": 1,
       "tier": 6
     },
     {
@@ -272,6 +292,7 @@
       "actions": 5,
       "food": "T1_CARROT",
       "food_amount": "165.0",
+      "offspring_amount": 1,
       "tier": 7
     },
     {
@@ -287,6 +308,7 @@
       "actions": 6,
       "food": "T1_CARROT",
       "food_amount": "411.0",
+      "offspring_amount": 1,
       "tier": 8
     },
     {
@@ -302,6 +324,7 @@
       "actions": 1,
       "food": "T1_CARROT",
       "food_amount": "10.0",
+      "offspring_amount": 1,
       "tier": 3
     },
     {
@@ -317,6 +340,7 @@
       "actions": 2,
       "food": "T1_CARROT",
       "food_amount": "16.0",
+      "offspring_amount": 1,
       "tier": 4
     },
     {
@@ -332,6 +356,7 @@
       "actions": 3,
       "food": "T1_CARROT",
       "food_amount": "31.0",
+      "offspring_amount": 1,
       "tier": 5
     },
     {
@@ -347,6 +372,7 @@
       "actions": 4,
       "food": "T1_CARROT",
       "food_amount": "69.0",
+      "offspring_amount": 1,
       "tier": 6
     },
     {
@@ -362,6 +388,7 @@
       "actions": 5,
       "food": "T1_CARROT",
       "food_amount": "165.0",
+      "offspring_amount": 1,
       "tier": 7
     },
     {
@@ -377,6 +404,119 @@
       "actions": 6,
       "food": "T1_CARROT",
       "food_amount": "411.0",
+      "offspring_amount": 1,
+      "tier": 8
+    },
+    {
+      "id": "T6_FARM_DIREWOLF_BABY",
+      "product": "T6_FARM_DIREWOLF_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 188.0,
+      "seed_return": "0.00",
+      "focus_bonus": "0.06",
+      "focus_base": 1000,
+      "actions": 4,
+      "food": "T3_MEAT",
+      "food_amount": "63.69230769230769",
+      "offspring_amount": 1,
+      "tier": 6
+    },
+    {
+      "id": "T7_FARM_DIREBOAR_BABY",
+      "product": "T7_FARM_DIREBOAR_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 236.0,
+      "seed_return": "0.00",
+      "focus_bonus": "0.04",
+      "focus_base": 1000,
+      "actions": 5,
+      "food": "T3_MEAT",
+      "food_amount": "152.30769230769232",
+      "offspring_amount": 1,
+      "tier": 7
+    },
+    {
+      "id": "T8_FARM_DIREBEAR_BABY",
+      "product": "T8_FARM_DIREBEAR_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 284.0,
+      "seed_return": "0.00",
+      "focus_bonus": "0.0250",
+      "focus_base": 1000,
+      "actions": 6,
+      "food": "T3_MEAT",
+      "food_amount": "379.38461538461536",
+      "offspring_amount": 1,
+      "tier": 8
+    },
+    {
+      "id": "T7_FARM_SWAMPDRAGON_BABY",
+      "product": "T7_FARM_SWAMPDRAGON_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 236.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.04",
+      "focus_base": 1000,
+      "actions": 5,
+      "food": "T3_MEAT",
+      "food_amount": "152.30769230769232",
+      "offspring_amount": 1,
+      "tier": 7
+    },
+    {
+      "id": "T8_FARM_MAMMOTH_BABY",
+      "product": "T8_FARM_MAMMOTH_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 284.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.0250",
+      "focus_base": 1000,
+      "actions": 6,
+      "food": "T1_CARROT",
+      "food_amount": "411.0",
+      "offspring_amount": 1,
+      "tier": 8
+    },
+    {
+      "id": "T5_FARM_COUGAR_BABY",
+      "product": "T5_FARM_COUGAR_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 140.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.1",
+      "focus_base": 1000,
+      "actions": 3,
+      "food": "T3_MEAT",
+      "food_amount": "28.615384615384617",
+      "offspring_amount": 1,
+      "tier": 5
+    },
+    {
+      "id": "T8_FARM_DIREWOLF_BABY",
+      "product": "T8_FARM_DIREWOLF_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 284.0,
+      "seed_return": "0.00",
+      "focus_bonus": "0.0250",
+      "focus_base": 1000,
+      "actions": 6,
+      "food": "T3_MEAT",
+      "food_amount": "379.38461538461536",
+      "offspring_amount": 1,
       "tier": 8
     },
     {
@@ -392,6 +532,7 @@
       "actions": 2,
       "food": "T1_CARROT",
       "food_amount": "16.0",
+      "offspring_amount": 1,
       "tier": 4
     },
     {
@@ -407,6 +548,7 @@
       "actions": 4,
       "food": "T1_CARROT",
       "food_amount": "69.0",
+      "offspring_amount": 1,
       "tier": 6
     },
     {
@@ -422,7 +564,280 @@
       "actions": 4,
       "food": "T1_CARROT",
       "food_amount": "69.0",
+      "offspring_amount": 1,
       "tier": 6
+    },
+    {
+      "id": "T8_FARM_RABBIT_EASTER_BABY_DARK",
+      "product": "T8_FARM_RABBIT_EASTER_GROWN_DARK",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 44.0,
+      "seed_return": "0.0000",
+      "focus_bonus": "0.1000",
+      "focus_base": 1000,
+      "actions": 1,
+      "food": "T3_MEAT",
+      "food_amount": "379.38461538461536",
+      "offspring_amount": 1,
+      "tier": 8
+    },
+    {
+      "id": "T5_FARM_MOABIRD_FW_BRIDGEWATCH_BABY",
+      "product": "T5_FARM_MOABIRD_FW_BRIDGEWATCH_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 140.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.1",
+      "focus_base": 1000,
+      "actions": 3,
+      "food": "T1_CARROT",
+      "food_amount": "31.0",
+      "offspring_amount": 1,
+      "tier": 5
+    },
+    {
+      "id": "T5_FARM_DIREBEAR_FW_FORTSTERLING_BABY",
+      "product": "T5_FARM_DIREBEAR_FW_FORTSTERLING_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 140.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.1",
+      "focus_base": 1000,
+      "actions": 3,
+      "food": "T3_MEAT",
+      "food_amount": "28.615384615384617",
+      "offspring_amount": 1,
+      "tier": 5
+    },
+    {
+      "id": "T5_FARM_DIREBOAR_FW_LYMHURST_BABY",
+      "product": "T5_FARM_DIREBOAR_FW_LYMHURST_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 140.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.1",
+      "focus_base": 1000,
+      "actions": 3,
+      "food": "T3_MEAT",
+      "food_amount": "28.615384615384617",
+      "offspring_amount": 1,
+      "tier": 5
+    },
+    {
+      "id": "T5_FARM_RAM_FW_MARTLOCK_BABY",
+      "product": "T5_FARM_RAM_FW_MARTLOCK_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 140.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.1",
+      "focus_base": 1000,
+      "actions": 3,
+      "food": "T1_CARROT",
+      "food_amount": "31.0",
+      "offspring_amount": 1,
+      "tier": 5
+    },
+    {
+      "id": "T5_FARM_SWAMPDRAGON_FW_THETFORD_BABY",
+      "product": "T5_FARM_SWAMPDRAGON_FW_THETFORD_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 140.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.1",
+      "focus_base": 1000,
+      "actions": 3,
+      "food": "T3_MEAT",
+      "food_amount": "28.615384615384617",
+      "offspring_amount": 1,
+      "tier": 5
+    },
+    {
+      "id": "T5_FARM_GREYWOLF_FW_CAERLEON_BABY",
+      "product": "T5_FARM_GREYWOLF_FW_CAERLEON_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 140.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.1",
+      "focus_base": 1000,
+      "actions": 3,
+      "food": "T3_MEAT",
+      "food_amount": "28.615384615384617",
+      "offspring_amount": 1,
+      "tier": 5
+    },
+    {
+      "id": "T5_FARM_OWL_FW_BRECILIEN_BABY",
+      "product": "T5_FARM_OWL_FW_BRECILIEN_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 140.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.1",
+      "focus_base": 1000,
+      "actions": 3,
+      "food": "T3_MEAT",
+      "food_amount": "28.615384615384617",
+      "offspring_amount": 1,
+      "tier": 5
+    },
+    {
+      "id": "T5_FARM_SPIDER_HELL_BABY",
+      "product": "T5_FARM_SPIDER_HELL_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 140.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.1",
+      "focus_base": 1000,
+      "actions": 3,
+      "food": "T3_MEAT",
+      "food_amount": "28.615384615384617",
+      "offspring_amount": 1,
+      "tier": 5
+    },
+    {
+      "id": "T8_FARM_MOABIRD_FW_BRIDGEWATCH_BABY",
+      "product": "T8_FARM_MOABIRD_FW_BRIDGEWATCH_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 284.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.025",
+      "focus_base": 1000,
+      "actions": 6,
+      "food": "T1_CARROT",
+      "food_amount": "411.0",
+      "offspring_amount": 1,
+      "tier": 8
+    },
+    {
+      "id": "T8_FARM_DIREBEAR_FW_FORTSTERLING_BABY",
+      "product": "T8_FARM_DIREBEAR_FW_FORTSTERLING_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 284.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.025",
+      "focus_base": 1000,
+      "actions": 6,
+      "food": "T3_MEAT",
+      "food_amount": "379.38461538461536",
+      "offspring_amount": 1,
+      "tier": 8
+    },
+    {
+      "id": "T8_FARM_DIREBOAR_FW_LYMHURST_BABY",
+      "product": "T8_FARM_DIREBOAR_FW_LYMHURST_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 284.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.025",
+      "focus_base": 1000,
+      "actions": 6,
+      "food": "T3_MEAT",
+      "food_amount": "379.38461538461536",
+      "offspring_amount": 1,
+      "tier": 8
+    },
+    {
+      "id": "T8_FARM_RAM_FW_MARTLOCK_BABY",
+      "product": "T8_FARM_RAM_FW_MARTLOCK_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 284.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.025",
+      "focus_base": 1000,
+      "actions": 6,
+      "food": "T1_CARROT",
+      "food_amount": "411.0",
+      "offspring_amount": 1,
+      "tier": 8
+    },
+    {
+      "id": "T8_FARM_SWAMPDRAGON_FW_THETFORD_BABY",
+      "product": "T8_FARM_SWAMPDRAGON_FW_THETFORD_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 284.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.025",
+      "focus_base": 1000,
+      "actions": 6,
+      "food": "T3_MEAT",
+      "food_amount": "379.38461538461536",
+      "offspring_amount": 1,
+      "tier": 8
+    },
+    {
+      "id": "T8_FARM_GREYWOLF_FW_CAERLEON_BABY",
+      "product": "T8_FARM_GREYWOLF_FW_CAERLEON_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 284.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.025",
+      "focus_base": 1000,
+      "actions": 6,
+      "food": "T3_MEAT",
+      "food_amount": "379.38461538461536",
+      "offspring_amount": 1,
+      "tier": 8
+    },
+    {
+      "id": "T8_FARM_OWL_FW_BRECILIEN_BABY",
+      "product": "T8_FARM_OWL_FW_BRECILIEN_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 284.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.025",
+      "focus_base": 1000,
+      "actions": 6,
+      "food": "T3_MEAT",
+      "food_amount": "379.38461538461536",
+      "offspring_amount": 1,
+      "tier": 8
+    },
+    {
+      "id": "T8_FARM_SPIDER_HELL_BABY",
+      "product": "T8_FARM_SPIDER_HELL_GROWN",
+      "kind": "wild",
+      "yield_min": 1,
+      "yield_max": 1,
+      "hours": 284.0,
+      "seed_return": "0.0",
+      "focus_bonus": "0.025",
+      "focus_base": 1000,
+      "actions": 6,
+      "food": "T3_MEAT",
+      "food_amount": "379.38461538461536",
+      "offspring_amount": 1,
+      "tier": 8
     },
     {
       "id": "T3_FARM_CHICKEN_BABY",
@@ -437,6 +852,7 @@
       "actions": 1,
       "food": "T3_WHEAT",
       "food_amount": "9.0",
+      "offspring_amount": 1,
       "tier": 3
     },
     {
@@ -452,6 +868,7 @@
       "actions": 1,
       "food": "T4_TURNIP",
       "food_amount": "9.0",
+      "offspring_amount": 1,
       "tier": 4
     },
     {
@@ -467,6 +884,7 @@
       "actions": 1,
       "food": "T5_CABBAGE",
       "food_amount": "9.0",
+      "offspring_amount": 1,
       "tier": 5
     },
     {
@@ -482,6 +900,7 @@
       "actions": 1,
       "food": "T6_POTATO",
       "food_amount": "9.0",
+      "offspring_amount": 1,
       "tier": 6
     },
     {
@@ -497,6 +916,7 @@
       "actions": 1,
       "food": "T7_CORN",
       "food_amount": "9.0",
+      "offspring_amount": 1,
       "tier": 7
     },
     {
@@ -512,33 +932,50 @@
       "actions": 1,
       "food": "T8_PUMPKIN",
       "food_amount": "9.0",
+      "offspring_amount": 1,
       "tier": 8
     }
   ],
   "bonuses": {
+    "Thetford": [
+      "T2_AGARIC",
+      "T5_CABBAGE",
+      "T7_MULLEIN"
+    ],
+    "Lymhurst": [
+      "T1_CARROT",
+      "T4_BURDOCK",
+      "T8_PUMPKIN"
+    ],
+    "Bridgewatch": [
+      "T2_BEAN",
+      "T5_TEASEL",
+      "T7_CORN"
+    ],
+    "Martlock": [
+      "T3_WHEAT",
+      "T6_POTATO",
+      "T6_FOXGLOVE"
+    ],
     "Fort Sterling": [
       "T4_TURNIP",
       "T8_YARROW"
     ],
-    "Thetford": [
-      "T5_CABBAGE",
+    "Caerleon": [
+      "T3_COMFREY",
+      "T5_TEASEL",
       "T7_MULLEIN"
     ],
-    "Martlock": [
-      "T6_POTATO",
-      "T6_FOXGLOVE"
-    ],
-    "Bridgewatch": [
-      "T7_CORN",
-      "T5_TEASEL"
-    ],
-    "Lymhurst": [
-      "T8_PUMPKIN",
-      "T4_BURDOCK"
-    ],
-    "Caerleon": [
+    "Brecilien": [
+      "T1_CARROT",
+      "T2_BEAN",
       "T3_WHEAT",
-      "T2_AGARIC"
+      "T4_TURNIP",
+      "T5_CABBAGE",
+      "T6_POTATO",
+      "T7_CORN",
+      "T8_PUMPKIN"
     ]
-  }
+  },
+  "farming_modifiers_sha256": "6435545c8c6f7e7da3901cc0e7a54e43008de49122dd39762f975f7a174b1b77"
 }

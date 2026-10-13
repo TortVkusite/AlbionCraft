@@ -61,6 +61,9 @@ class LocalStore:
         self.db.execute('CREATE TABLE IF NOT EXISTS local_histories (item TEXT,city TEXT,quality INTEGER,payload TEXT,PRIMARY KEY(item,city,quality))')
         self.db.commit()
     def save(self,orders):
+        from .market_memory import initialize,archive_prices
+        initialize(self.db)
+        self.db.executemany('INSERT OR IGNORE INTO order_history VALUES(?,?,?,?,?,?,?,?)',[(o[0],o[1],o[2],o[3],o[4],o[5],o[6],o[7]) for o in orders])
         # Replace the previously seen page for each item/side; never keep a cheaper old page forever.
         groups={}
         for order in orders:
@@ -69,6 +72,8 @@ class LocalStore:
             unique={o[0]:o for o in entries}
             payload=[dict(id=o[0],price=o[5],amount=o[6],observed=o[7],expires=o[8],unit='silver') for o in unique.values()]
             self.db.execute('INSERT OR REPLACE INTO local_quotes VALUES(?,?,?,?,?)',(uid,city,q,side,json.dumps(payload)))
+            best=(min if side=='sell_price_min' else max)(entries,key=lambda o:o[5])
+            archive_prices(self.db,[dict(item_id=uid,city=city,quality=q,**{side:best[5],side+'_date':best[7]})],'Local')
         self.db.commit()
     def prices(self,ids=None,now=None):
         now=now or datetime.now(timezone.utc);result={};ids=set(ids) if ids is not None else None
@@ -89,6 +94,8 @@ class LocalStore:
         return list(result.values())
     def close(self):self.db.close()
     def save_history(self,history):
+        from .market_memory import archive_volumes
+        archive_volumes(self.db,[history],'Local')
         self.db.execute('INSERT OR REPLACE INTO local_histories VALUES(?,?,?,?)',(history['item_id'],history['location'],history['quality'],json.dumps(history)));self.db.commit()
     def histories(self,ids):
         ids=set(ids);cutoff=datetime.now(timezone.utc)-timedelta(days=1)

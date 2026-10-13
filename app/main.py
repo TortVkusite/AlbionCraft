@@ -97,6 +97,8 @@ class Window(QMainWindow):
         help_menu=self.menuBar().addMenu(tr('Помощь'))
         about=help_menu.addAction(tr('О программе'));about.triggered.connect(self.about)
         folder=help_menu.addAction(tr('Папка моих данных'));folder.triggered.connect(self.open_data_folder)
+        research=help_menu.addAction(tr('История рынка и бонусы'));research.triggered.connect(self.open_research)
+        profile=help_menu.addAction(tr('Резервная копия и диагностика'));profile.triggered.connect(self.open_data_tools)
         language_menu=self.menuBar().addMenu('Language / Язык')
         language_group=QActionGroup(self);language_group.setExclusive(True);self.language_actions={}
         for code,label in LANGUAGES.items():
@@ -633,13 +635,20 @@ class Window(QMainWindow):
         self.render_generation+=1;self.table_batch.cancel()
         if self.render_worker and self.render_worker.isRunning():self.render_worker.requestInterruption()
         self.render_timer.start(180)
+    def open_research(self):
+        from .research_dialog import ResearchDialog
+        ResearchDialog(self).exec()
+    def open_data_tools(self):
+        from .profile_dialog import ProfileDialog
+        ProfileDialog(self).exec()
     def render_now(self):
         if not self.last or getattr(self,'closing',False):return
         if self.render_worker and self.render_worker.isRunning():self.pending_render=True;return
         from copy import deepcopy
+        from .market_memory import bonus_settings
         activity=self.activity.currentData();recipes=self.filtered()
         self.settings.update(sale_mode=self.mode.currentData(),activity=activity,same_city=activity in ('craft','enchant'),nearby_only=True,include_caerleon=self.caerleon.isChecked(),include_brecilien=self.brecilien.isChecked())
-        data=dict(recipes=recipes,settings=deepcopy(self.settings),activity=activity,
+        data=dict(recipes=recipes,settings=deepcopy(bonus_settings(self.root,self.settings)),activity=activity,
             prices=self.last['prices'],histories=self.last['histories'],quality=self.quality.currentData(),
             age=None if self.any_age.isChecked() else self.age.value(),buy=self.selected_cities(self.buy),
             craft=self.selected_cities(self.craft),sell=self.selected_cities(self.sell),demand=self.demand.currentData(),
@@ -766,6 +775,7 @@ class Window(QMainWindow):
         self.settings['language']=code;self.persist_view();save_preferences(self.base_root,language=code)
         app=QApplication.instance();app.setQuitOnLastWindowClosed(False)
         client_process=self.client_process;self.client_process=None
+        self.force_exit=True
         restart_client=region is not None and client_process and client_process.poll() is None
         if restart_client:client_process.terminate();client_process=None
         for name in ('builds_dialog','recommendation_dialog'):
@@ -775,6 +785,9 @@ class Window(QMainWindow):
             if self.isVisible():QTimer.singleShot(200,reopen);return
             try:
                 set_language(code);window=Window(region or self.region);app._albioncraft_window=window;window.show()
+                if hasattr(self,'desktop'):
+                    from .desktop import DesktopController
+                    window.desktop=DesktopController(window)
                 window.client_process=client_process
                 if hasattr(self,'client_error_log'):window.client_error_log=self.client_error_log
                 if restart_client:
@@ -788,9 +801,12 @@ class Window(QMainWindow):
         QTimer.singleShot(0,reopen)
 
     def closeEvent(self,event):
+        desktop=getattr(self,'desktop',None)
+        if not getattr(self,'force_exit',False) and not getattr(self,'closing',False) and desktop and desktop.close_to_tray():event.ignore();return
         first=not getattr(self,'closing',False)
         self.closing=True;self.render_timer.stop();self.table_batch.cancel()
         if first:
+            if desktop:desktop.shutdown()
             self.centralWidget().setEnabled(False);self.menuBar().setEnabled(False)
             for name in ('builds_dialog','recommendation_dialog','orders_page','profile_page','preferences_page'):
                 if dialog:=getattr(self,name,None):dialog.close()
@@ -819,12 +835,20 @@ def main():
     _crash_output=open(ROOT/'albioncraft-crash.log','a',encoding='utf-8')
     faulthandler.enable(file=_crash_output,all_threads=True)
     app=QApplication(sys.argv)
+    from .desktop import single_instance,DesktopController
+    if not single_instance(app,ROOT):return 0
+    from .profile_backup import apply_restore
+    try:apply_restore(ROOT)
+    except Exception as exc:
+        logging.exception('Profile restore');QMessageBox.warning(None,'AlbionCraft',tr('Не удалось завершить восстановление. Резервная копия перед восстановлением находится в папке данных.'))
     set_language(default_language())
     for file in ['segoeui.ttf','seguisym.ttf']:
         path=Path('C:/Windows/Fonts')/file
         if path.exists():QFontDatabase.addApplicationFont(str(path))
     app.setFont(QFont('Segoe UI',10))
-    try:window=Window();app._albioncraft_window=window;window.show()
+    try:
+        window=Window();app._albioncraft_window=window;window.desktop=DesktopController(window)
+        if '--background' not in sys.argv or not window.desktop.tray.isVisible():window.show()
     except Exception as exc:logging.exception('Startup');QMessageBox.critical(None,'AlbionCraft',str(exc));return 1
     return app.exec()
 

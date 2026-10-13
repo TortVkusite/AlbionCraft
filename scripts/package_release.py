@@ -12,7 +12,7 @@ top={'README.md','USER_GUIDE.md','DATA_SOURCES.md','CHANGES.md','LICENSE',
      'THIRD_PARTY_NOTICES.md','PRIVACY.md','CONTRIBUTING.md','.gitignore','.gitattributes',
      'requirements.txt','requirements-build.txt','Start.cmd','Start.ps1',
      'Setup.cmd','AlbionCraft.spec'}
-research={'items.json','names.json','achievements.json','full_gamedata.json','README.md'}
+research={'items.json','names.json','achievements.json','full_gamedata.json','farmingmodifiers.json','README.md'}
 source=[]
 for p in root.rglob('*'):
     if not p.is_file():continue
@@ -42,7 +42,7 @@ with zipfile.ZipFile(windows_zip,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as ar
         if p.is_file():archive.write(p,Path('AlbionCraft')/p.relative_to(binary))
     for name in ['LICENSE','THIRD_PARTY_NOTICES.md','USER_GUIDE.md','PRIVACY.md']:
         archive.write(root/name,Path('AlbionCraft')/name)
-    for name in ['QUICK_START.md','QUICK_START_EN.md','RELEASE_NOTES.md']:
+    for name in ['QUICK_START.md','QUICK_START_EN.md','RELEASE_NOTES.md','DECISION_TOOLS.md']:
         archive.write(root/'docs'/name,Path('AlbionCraft/docs')/name)
 hashes=[]
 for p in (source_zip,windows_zip):

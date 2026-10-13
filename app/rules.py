@@ -19,6 +19,9 @@ def automatic_profile(recipe,city,settings):
     table=rules();location=table['cities'].get(city)
     if location is None:return {}
     bonus=D(location['base'])+D(location['bonuses'].get(recipe.crafting_category, '0'))
+    from datetime import datetime,timezone
+    active=settings.get('production_bonuses',{}).get(recipe.crafting_category)
+    if active and datetime.fromisoformat(active['starts'])<=datetime.now(timezone.utc)<datetime.fromisoformat(active['ends']):bonus+=D(str(active['percent']))/100
     focus=D(table['focus_bonus'])
     rate=settings.get('station_rates',{}).get(city)
     result=dict(rrr=str(bonus/(1+bonus)*100),focus_rrr=str((bonus+focus)/(1+bonus+focus)*100),production_bonus=str(bonus*100))

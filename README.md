@@ -3,7 +3,7 @@
 <p align="center"><b>Помощник для рынка, переработки и прогресса в Albion Online</b><br>Windows x64 · Europe / Americas / Asia · Русский / English · Beta</p>
 
 <p align="center">
-<a href="https://github.com/TortVkusite/AlbionCraft/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-0.4.0%20beta-blue" alt="0.4.0 beta"></a>
+<a href="https://github.com/TortVkusite/AlbionCraft/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-0.5.0%20beta-blue" alt="0.5.0 beta"></a>
 <a href="https://github.com/TortVkusite/AlbionCraft/actions/workflows/test.yml"><img src="https://github.com/TortVkusite/AlbionCraft/actions/workflows/test.yml/badge.svg" alt="Tests"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT"></a>
 </p>
@@ -12,7 +12,7 @@ AlbionCraft помогает выбрать выгодные предметы и
 сколько привезти, что переработать и где продать. Сравнивай прибыль в серебре
 или ROI, учитывай фокус, тариф станции, уже купленные партии и запасы на базе.
 
-**Начать:** [скачай Windows-сборку](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.4.0/AlbionCraft-0.4.0-windows-x64.zip), распакуй её целиком и
+**Начать:** [скачай Windows-сборку](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.5.0/AlbionCraft-0.5.0-windows-x64.zip), распакуй её целиком и
 запусти `AlbionCraft.exe`. Python устанавливать не нужно.
 [Все релизы](https://github.com/TortVkusite/AlbionCraft/releases) ·
 [Первые шаги](docs/QUICK_START.md) · [Подробная инструкция](USER_GUIDE.md) ·
@@ -30,6 +30,14 @@ AlbionCraft помогает выбрать выгодные предметы и
 | Прогресс | Древо персонажа, опыт, распределение свободной славы и журнал |
 | Остров | Посадки, травы и выращивание животных; затраты первого цикла, возврат семян и распределение фокуса |
 | Персонализация | Сохранение фильтров, исключения, рекомендации и сценарии ходок |
+| История и бонусы | Локальная динамика цен и объёмов, подтверждение бонусов со скриншота, срок действия и напоминания |
+| Фоновая работа | Трей, ожидание запуска Albion и подключение клиента по выбору пользователя |
+| Резервная копия | Приватный ZIP профилей, восстановление и обезличенный отчёт диагностики |
+
+В 0.5.0 бюджет ходки учитывает все расходы и резерв серебра, сохранённые планы
+резервируют запасы. Добавлены стресс-сценарии, проверка по фактическим результатам,
+схема острова, окупаемость построек и питомник. Бонусы требуют проверки после OCR;
+сроки продаж остаются сценариями. [Как пользоваться](USER_GUIDE.md).
 
 <p align="center"><img src="docs/screenshots/trip.png" alt="Калькулятор ходки на демонстрационных ценах" width="100%"><br><sub>Пример расчёта на демонстрационных ценах; это не текущие котировки.</sub></p>
 
