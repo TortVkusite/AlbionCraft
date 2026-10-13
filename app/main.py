@@ -38,6 +38,9 @@ from .number_fields import NumberBox
 from .regions import REGIONS,region_key,region_root,preferences,save_preferences
 from .responsive import GuiBatch,set_choices
 from .background import ProcessWorker
+from .dashboard import STYLE,panel,section,fold,move_widgets,title
+from .material_cells import MaterialDelegate,MATERIAL_ROLE,breakdown,tip
+from .i18n_widgets import QScrollArea,QStackedWidget
 from PySide6.QtGui import QIcon
 
 ROOT=data_root()
@@ -117,8 +120,6 @@ class Window(QMainWindow):
         body=QWidget();self.setCentralWidget(body);layout=QVBoxLayout(body);layout.setSpacing(8)
         heading_bar=FlowLayout();layout.addLayout(heading_bar)
         heading=QLabel('AlbionCraft  /  '+self.region_label);heading.setStyleSheet('font-size:24px;font-weight:600;');heading_bar.addWidget(heading);heading_bar.addStretch()
-        for title,action in [('Калькулятор ходки',self.open_trip),('Билды / рынок',self.open_builds),('Мои заказы',self.open_orders),('Рекомендации',self.open_recommendations),('Персонализация',self.personalize),('Прогресс / журнал',self.open_profile)]:
-            button=QPushButton(title);heading_bar.addWidget(button);button.clicked.connect(action)
         operation=FlowLayout();layout.addLayout(operation)
         operation.addWidget(QLabel('Что ищем:'))
         self.activity=combo([('Крафт / переработка','craft'),('Зачарование готового предмета','enchant'),
@@ -129,7 +130,7 @@ class Window(QMainWindow):
         self.live=QCheckBox('Доп. ордера NATS');self.live.setChecked(bool(self.settings.get('live_orders',True)));operation.addWidget(self.live)
         self.live.setToolTip('REST остаётся основным. Поток наблюдавшихся ордеров пополняет отсутствующие цены и сохраняется отдельно. Это неполный срез рынка AODP.')
         self.page=NumberBox();self.page.setRange(1,1);self.page.setPrefix('Страница ');operation.addWidget(self.page)
-        bounds=QPushButton('Прибыль / бюджет');operation.addWidget(bounds);bounds.clicked.connect(self.configure_bounds)
+        bounds=QPushButton('Прибыль / бюджет');self.bounds_button=bounds;operation.addWidget(bounds);bounds.clicked.connect(self.configure_bounds)
         self.hide_excluded=QCheckBox('Без исключённых');self.hide_excluded.setChecked(True);operation.addWidget(self.hide_excluded);operation.addStretch()
         cities=FlowLayout();layout.addLayout(cities)
         cities.addWidget(QLabel('Сервер:'));self.server=combo([(v['label'],k) for k,v in REGIONS.items()]);self.server.setCurrentIndex(self.server.findData(self.region));cities.addWidget(self.server)
@@ -166,7 +167,7 @@ class Window(QMainWindow):
         self.enchantment=combo([('Все зачарования',None)]+[(f'.{n}',n) for n in range(5)]+[('Выбранные чары','custom')]);self.enchantment.setCurrentIndex(self.enchantment.findData('custom') if 'enchantment_mask' in self.settings else 1);filters.addWidget(self.enchantment)
         self.quality=combo([('Качество неважно','any'),('Все качества',None)]+[(s,n) for n,s in enumerate(['Обычное','Хорошее','Выдающееся','Отличное','Шедевр'],1)]);filters.addWidget(self.quality)
         for box,width in [(self.category,175),(self.family,140),(self.tier,85),(self.enchantment,140),(self.quality,145)]:box.setFixedWidth(width)
-        choose_filters=QPushButton('Выбор…');choose_filters.setToolTip('Выбрать несколько зачарований и качеств галочками');choose_filters.clicked.connect(self.select_filters);filters.addWidget(choose_filters)
+        choose_filters=QPushButton('Выбор…');self.choose_filters=choose_filters;choose_filters.setToolTip('Выбрать несколько зачарований и качеств галочками');choose_filters.clicked.connect(self.select_filters);filters.addWidget(choose_filters)
         self.update_mask_labels()
         actions=FlowLayout();layout.addLayout(actions)
         self.mode=combo([('Выставить на продажу','order'),('Продать сразу','instant')]);actions.addWidget(self.mode)
@@ -186,8 +187,11 @@ class Window(QMainWindow):
         self.local_enabled=QCheckBox('Цены из моей игры');self.local_enabled.setChecked(bool(self.settings.get('local_enabled',False)));local_bar.addWidget(self.local_enabled)
         local_setup=QPushButton('Подключить клиент…');local_bar.addWidget(local_setup);local_setup.clicked.connect(self.configure_local)
         self.local_status=QLabel('Из игры: выключено');self.local_status.setWordWrap(True);self.local_status.setMaximumWidth(850);local_bar.addWidget(self.local_status)
-        self.table=SearchTable(0,13)
-        self.table.setHorizontalHeaderLabels(['Предмет','Город','Продажа в','Закупка','Продажа','Прибыль\n(≤: граница)','ROI, %','Прибыль с F','ROI с F, %','Объём продаж\nза 7 дней','Дата','Состояние расчёта','Надёжность'])
+        self.table=SearchTable(0,15)
+        self.table.setHorizontalHeaderLabels(['Предмет','Город','Продажа в','Закупка','Продажа','Прибыль\n(≤: граница)','ROI, %','Прибыль с F','ROI с F, %','Объём продаж\nза 7 дней','Дата','Состояние расчёта','Надёжность','Материалы','Артефакт'])
+        self.material_delegate=MaterialDelegate(self.icons,self.table)
+        for column in (13,14):self.table.setItemDelegateForColumn(column,self.material_delegate)
+        header=self.table.horizontalHeader();header.moveSection(header.visualIndex(13),header.visualIndex(3));header.moveSection(header.visualIndex(14),header.visualIndex(13)+1)
         readable_table(self.table)
         for c,width in enumerate([250,110,110,105,105,130,95,140,110,210,155,180,160]):self.table.setColumnWidth(c,width)
         self.table.setIconSize(QSize(44,44));self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -238,7 +242,63 @@ class Window(QMainWindow):
             elif isinstance(control,QSpinBox):control.valueChanged.connect(self.queue_view_save)
             else:control.textChanged.connect(self.queue_view_save)
         self.restoring_view=False
+        self.build_dashboard(layout,heading_bar,operation,cities,rule_bar,filters,actions,local_bar)
         fit_window(self)
+    def build_dashboard(self,old,heading,operation,cities,rules,filters,actions,local):
+        self.setStyleSheet(STYLE)
+        market=QWidget();market_body=QVBoxLayout(market);market_body.setContentsMargins(4,0,4,0)
+        market_body.addWidget(title('Рынок'))
+        row=QHBoxLayout();market_body.addLayout(row,1);scroll,settings=panel();row.addWidget(scroll)
+        section(settings,'Задача');move_widgets(operation,settings,(self.page,self.with_prices,self.live,self.bounds_button,self.hide_excluded))
+        section(settings,'Предметы');move_widgets(filters,settings,(self.tier,self.enchantment,self.quality,self.choose_filters))
+        variants=QHBoxLayout();variants.addWidget(self.tier);variants.addWidget(self.enchantment);settings.addLayout(variants)
+        self.tier.setMinimumWidth(0);self.tier.setMaximumWidth(130);self.enchantment.setMinimumWidth(0);self.enchantment.setMaximumWidth(150)
+        server_label=cities.takeAt(0).widget();server_label.deleteLater()
+        section(settings,'Города');move_widgets(cities,settings,(self.server,))
+        section(settings,'Продажа');move_widgets(actions,settings,(self.cached,self.update,self.cancel,self.configure))
+        advanced=fold(settings,'Дополнительные настройки')
+        for widget in (self.with_prices,self.hide_excluded,self.bounds_button,self.quality,self.choose_filters):advanced.addWidget(widget)
+        move_widgets(rules,advanced);advanced.addWidget(self.configure)
+        connection=fold(settings,'Источники данных');connection.addWidget(self.live);move_widgets(local,connection);connection.addWidget(self.stream_status)
+        settings.addStretch()
+        results=QWidget();results_body=QVBoxLayout(results);results_body.setContentsMargins(8,0,0,0);row.addWidget(results,1)
+        buttons=FlowLayout();results_body.addLayout(buttons)
+        for button in (self.update,self.cached,self.cancel):buttons.addWidget(button)
+        self.update.setObjectName('primary');self.update.setStyleSheet('');buttons.addStretch();buttons.addWidget(self.page)
+        self.detail_columns=QCheckBox('Подробные столбцы');buttons.addWidget(self.detail_columns)
+        self.detail_columns.toggled.connect(self.show_extra_columns)
+        results_body.addWidget(self.table,1);results_body.addWidget(self.status);results_body.addWidget(self.summary)
+        # Keep existing explanatory controls available, but out of the main table area.
+        leftovers=fold(settings,'Справка')
+        while old.count():
+            item=old.takeAt(0)
+            if widget:=item.widget():
+                if widget not in (self.table,self.status,self.summary,self.stream_status):leftovers.addWidget(widget)
+        self.table.setColumnWidth(13,165);self.table.setColumnWidth(14,145)
+        self.page_stack=QStackedWidget();self.page_stack.addWidget(market);self.market_page=market
+        shell=QWidget();shell_body=QHBoxLayout(shell);shell_body.setContentsMargins(0,0,8,8);shell_body.setSpacing(12)
+        navigation=QWidget();navigation.setObjectName('navigation');navigation.setFixedWidth(172);nav=QVBoxLayout(navigation)
+        nav.setContentsMargins(12,16,12,12);brand=QLabel('AlbionCraft');brand.setStyleSheet('font-size:20px;font-weight:600;color:#65d6bb;');nav.addWidget(brand)
+        nav.addWidget(QLabel(self.region_label));self.nav_buttons={}
+        for key,text,action in [('market','Рынок',self.show_market),('trip','Ходки',self.open_trip),('orders','Мои заказы',self.open_orders),('builds','Билды',self.open_builds),('profile','Персонаж',self.open_profile),('island','Остров',self.open_island),('recommendations','Рекомендации',self.open_recommendations),('preferences','Персонализация',self.personalize)]:
+            button=QPushButton(text);button.setObjectName('navButton');button.setCheckable(True);button.clicked.connect(action);nav.addWidget(button);self.nav_buttons[key]=button
+        nav.addStretch();section(nav,'Сервер');nav.addWidget(self.server)
+        shell_body.addWidget(navigation);shell_body.addWidget(self.page_stack,1)
+        previous=self.takeCentralWidget();self.setCentralWidget(shell);previous.deleteLater()
+        self.show_market();self.show_extra_columns(False)
+    def show_extra_columns(self,checked):
+        self.table.setColumnHidden(3,not checked and self.activity.currentData() in ('craft','enchant'))
+        for col in (7,8):self.table.setColumnHidden(col,not checked or self.activity.currentData()!='craft')
+        for col in (10,11,12):self.table.setColumnHidden(col,not checked)
+    def activate_page(self,key,page):
+        self.page_stack.setCurrentWidget(page)
+        for name,button in self.nav_buttons.items():button.setChecked(name==key)
+    def show_market(self):self.activate_page('market',self.market_page)
+    def open_island(self):
+        from .island_dialog import IslandPage
+        if not hasattr(self,'island_page'):
+            self.island_page=IslandPage(self,self.root);self.page_stack.addWidget(self.island_page)
+        self.activate_page('island',self.island_page)
     def view_controls(self):
         return {key:getattr(self,key) for key in ('activity','buy','craft','sell','category','material','family','item','tier','enchantment','quality','demand','mode','search','age','any_age','with_prices','hide_excluded')}
     def about(self):
@@ -289,10 +349,21 @@ class Window(QMainWindow):
         self.settings['view']=view;save_settings(self.settings_path,self.settings)
     def personalize(self):
         from .personalization import PersonalizationDialog
-        dialog=PersonalizationDialog(self,self.recipes,self.settings)
-        if dialog.exec():
+        if dialog:=getattr(self,'preferences_page',None):self.activate_page('preferences',dialog);return
+        dialog=PersonalizationDialog(self,self.recipes,self.settings);self.preferences_page=dialog
+        def saved():
             self.settings.update(excluded_items=dialog.excluded,recommendations=dialog.recommendations)
             self.persist_view();self.page.setValue(1);self.render()
+        dialog.accepted.connect(saved);self.present_dialog('preferences','preferences_page',dialog,retire=True)
+    def present_dialog(self,key,attribute,dialog,retire=False):
+        if self.page_stack.indexOf(dialog)<0:
+            dialog.setWindowFlags(Qt.Widget);self.page_stack.addWidget(dialog)
+            def finished(*args):
+                if self.page_stack.currentWidget()==dialog:self.show_market()
+                if retire:
+                    self.page_stack.removeWidget(dialog);setattr(self,attribute,None);dialog.deleteLater()
+            dialog.finished.connect(finished)
+        self.activate_page(key,dialog);dialog.show()
     def item_menu(self,pos):
         n=self.table.indexAt(pos).row();cell=self.table.item(n,0)
         if not cell:return
@@ -310,17 +381,20 @@ class Window(QMainWindow):
     def open_builds(self):
         from .builds_dialog import BuildsDialog
         if not hasattr(self,'builds_dialog'):self.builds_dialog=BuildsDialog(self,self.root)
-        self.builds_dialog.show();self.builds_dialog.raise_();self.builds_dialog.activateWindow()
+        self.present_dialog('builds','builds_dialog',self.builds_dialog)
     def open_trip(self):
         from .trip_dialog import TripDialog
-        TripDialog(self,self.root).exec()
+        if not hasattr(self,'trip_page'):
+            self.trip_page=TripDialog(self,self.root);self.trip_page.setWindowFlags(Qt.Widget);self.page_stack.addWidget(self.trip_page)
+        self.activate_page('trip',self.trip_page)
     def open_recommendations(self):
         from .recommendations_dialog import RecommendationsDialog
         if not hasattr(self,'recommendation_dialog'):self.recommendation_dialog=RecommendationsDialog(self)
-        self.recommendation_dialog.show();self.recommendation_dialog.raise_();self.recommendation_dialog.activateWindow();self.recommendation_dialog.refresh()
+        self.present_dialog('recommendations','recommendation_dialog',self.recommendation_dialog);self.recommendation_dialog.refresh()
     def open_orders(self):
         from .own_orders_dialog import OwnOrdersDialog
-        OwnOrdersDialog(self,self.root/'player.sqlite').exec()
+        if not getattr(self,'orders_page',None):self.orders_page=OwnOrdersDialog(self,self.root/'player.sqlite')
+        self.present_dialog('orders','orders_page',self.orders_page,retire=True)
     def save_local_settings(self):
         self.settings_path.write_text(json.dumps(self.settings,ensure_ascii=False,indent=2),encoding='utf-8')
     def configure_local(self):
@@ -355,9 +429,10 @@ class Window(QMainWindow):
             self.settings['result_limits']=dialog.limits;self.settings_path.write_text(json.dumps(self.settings,ensure_ascii=False,indent=2),encoding='utf-8');self.page.setValue(1);self.render()
     def open_profile(self):
         from .destiny_dialog import DestinyDialog
+        if dialog:=getattr(self,'profile_page',None):self.activate_page('profile',dialog);return
         current=self.table.currentRow();cell=self.table.item(current,0) if current>=0 else None
         row=self.visible[cell.data(Qt.UserRole+1)] if cell else None
-        DestinyDialog(self,self.root,self.recipes,row).exec()
+        self.profile_page=DestinyDialog(self,self.root,self.recipes,row);self.present_dialog('profile','profile_page',self.profile_page,retire=True)
     def comparison_ids(self,recipes):
         quality=self.quality.currentData()
         if self.settings.get('prefer_upgrades',True):return comparison_price_ids(recipes,self.recipes)
@@ -595,6 +670,12 @@ class Window(QMainWindow):
         variants={}
         for recipe in recipes:variants.setdefault((recipe.item_id,recipe.path),set()).add(recipe.variant)
         for c in (7,8):self.table.setColumnHidden(c,activity!='craft')
+        if hasattr(self,'detail_columns'):self.show_extra_columns(self.detail_columns.isChecked())
+        for c in (13,14):self.table.setColumnHidden(c,activity not in ('craft','enchant'))
+        if activity in ('craft','enchant'):
+            self.table.setColumnHidden(1,self.craft.currentData() is not None)
+            self.table.setColumnHidden(14,not any(breakdown(row,True)['parts'] for row in self.visible))
+        else:self.table.setColumnHidden(1,False);self.table.setColumnHidden(3,False)
         for n,row in enumerate(self.visible):
             r=row['recipe'];a=row['base'];b=row['focus'];d=row['demand']
             confidence='?' if row['reasons'] else '⚠' if row['issues'] else '✓'
@@ -634,9 +715,15 @@ class Window(QMainWindow):
                 if c in (6,8) and nums.get(c) is not None and nums[c]<0:cell.setForeground(QColor('#ff7777'))
                 if c==10 and (any('устарело' in p['status'] or 'будущем' in p['status'] for p in row['parts']) or 'устарело' in row['sale_status'] or 'будущем' in row['sale_status']):cell.setForeground(QColor('#ff7777'))
                 self.table.setItem(n,c,cell)
-            self.table.setRowHeight(n,max(80 if label.count('\n')>1 else 66 if '\n' in label else 60,76 if d['per_day']>=1000 else 60))
+            material_height=60
+            for column,artifacts in ((13,False),(14,True)):
+                data=breakdown(row,artifacts);cell=NumericItem('');cell.setData(MATERIAL_ROLE,data);cell.setToolTip(tip(data));cell.setBackground(QColor(COLORS[row['color']]))
+                cell.setData(Qt.UserRole,float(data['total']) if data['complete'] else None);self.table.setItem(n,column,cell)
+                material_height=max(material_height,30+25*len(data['parts']))
+            self.table.setRowHeight(n,max(material_height,80 if label.count('\n')>1 else 66 if '\n' in label else 60,76 if d['per_day']>=1000 else 60))
             yield
         for c,width in enumerate([210,95,95,105,95,120,85,140,110,245,160,180,160]):self.table.setColumnWidth(c,width)
+        self.table.setColumnWidth(9,165);self.table.setColumnWidth(14,105)
         column={'profit':5,'roi':6,'focus_profit':7,'focus_roi':8}[sort]
         self.table.horizontalHeader().setSortIndicator(column,Qt.DescendingOrder if self.sort_descending else Qt.AscendingOrder)
         source='кэш REST' if self.last['cached'] else self.region_label+' REST API'
@@ -705,13 +792,17 @@ class Window(QMainWindow):
         self.closing=True;self.render_timer.stop();self.table_batch.cancel()
         if first:
             self.centralWidget().setEnabled(False);self.menuBar().setEnabled(False)
-            for name in ('builds_dialog','recommendation_dialog'):
+            for name in ('builds_dialog','recommendation_dialog','orders_page','profile_page','preferences_page'):
                 if dialog:=getattr(self,name,None):dialog.close()
         for timer_name in ('load_timer','stream_timer','view_timer'):
             if timer:=getattr(self,timer_name,None):timer.stop()
         tracker=getattr(self,'builds_dialog',None)
         recommendations=getattr(self,'recommendation_dialog',None)
-        workers=[self.worker,self.render_worker,self.local_receiver,self.stream,getattr(tracker,'worker',None),getattr(tracker,'calculation_worker',None),getattr(recommendations,'calculation_worker',None)]
+        trip=getattr(self,'trip_page',None);island=getattr(self,'island_page',None)
+        if first:
+            if trip:trip.close()
+            if island:island.close()
+        workers=[self.worker,self.render_worker,self.local_receiver,self.stream,getattr(tracker,'worker',None),getattr(tracker,'calculation_worker',None),getattr(recommendations,'calculation_worker',None),getattr(trip,'worker',None),getattr(island,'worker',None),getattr(island,'calculation',None)]
         for worker in workers:
             if worker and worker.isRunning():worker.requestInterruption()
         if any(worker and worker.isRunning() for worker in workers):

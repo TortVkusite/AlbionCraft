@@ -23,6 +23,7 @@ from .ui_layout import FlowLayout,explanation,readable_table,fit_window
 from .i18n_widgets import QScrollArea
 from .number_fields import NumberBox,LargeNumberBox
 from .background import ProcessWorker
+from .dashboard import panel,section,fold,move_widgets,title,Metrics
 
 FAMILIES={'ore':'Руда / слитки','fiber':'Волокно / ткань','hide':'Шкуры / кожа','wood':'Древесина / брусья','rock':'Камень / блоки'}
 
@@ -152,8 +153,55 @@ class TripDialog(QDialog):
         self.filter()
         self.timer=QTimer(self);self.timer.setInterval(1500);self.timer.timeout.connect(self.poll_prices)
         self.price_signature=self.market_signature();self.timer.start()
+        self.redesign(outer,layout,grid,select,buttons,stock_controls,target,result_split)
         fit_window(self)
         fit_window(self.market_dialog)
+
+    def redesign(self,outer,old,grid,selection,buttons,stock,target,result_split):
+        notes=[]
+        while outer.count():
+            item=outer.takeAt(0)
+            if item.widget() and item.widget() not in (self.controls_scroll,self.status,result_split,self.xp,self.stock_label):notes.append(item.widget())
+        outer.addWidget(title('Ходки'))
+        horizontal=QHBoxLayout();outer.addLayout(horizontal,1)
+        scroll,left=panel();horizontal.addWidget(scroll);self.controls_scroll.hide()
+        section(left,'Маршрут и лимиты')
+        fields=[]
+        for row in range(grid.rowCount()):
+            for col in range(grid.columnCount()):
+                item=grid.itemAtPosition(row,col)
+                if item and item.widget():fields.append(item.widget())
+        while grid.count():grid.takeAt(0)
+        # The original grid contains label rows followed by control rows.
+        labels=fields[:5];values=fields[5:10];extra_labels=fields[10:15];extra_values=fields[15:20]
+        for label,value in zip(labels,values):left.addWidget(label);left.addWidget(value)
+        section(left,'Фокус и продажа')
+        for index in (0,1,4):left.addWidget(extra_labels[index]);left.addWidget(extra_values[index])
+        advanced=fold(left,'Дополнительные настройки')
+        for index in (2,3):advanced.addWidget(extra_labels[index]);advanced.addWidget(extra_values[index])
+        # Move remaining options individually; no repeated widgets or connections.
+        section(left,'Запасы и рынок');move_widgets(stock,left)
+        section(left,'Цель подбора');move_widgets(target,left)
+        for widget in (self.mastery,self.age,self.repeat,self.chain):advanced.addWidget(widget)
+        leftovers=fold(left,'Пояснения')
+        for widget in notes:leftovers.addWidget(widget)
+        while old.count():
+            item=old.takeAt(0)
+            if widget:=item.widget():
+                if widget not in (self.choices,self.mastery,self.age,self.repeat,self.chain):leftovers.addWidget(widget)
+        left.addStretch()
+        right=QWidget();body=QVBoxLayout(right);body.setContentsMargins(8,0,0,0);horizontal.addWidget(right,1)
+        self.metrics=Metrics(['Прибыль','Новая закупка','Вес','Фокус']);body.addWidget(self.metrics)
+        toolbar=FlowLayout();body.addLayout(toolbar);move_widgets(buttons,toolbar)
+        self.calculate_button.setObjectName('primary')
+        body.addWidget(self.status)
+        self.workspace_tabs=QTabWidget();body.addWidget(self.workspace_tabs,1)
+        resources=QWidget();resources_body=QVBoxLayout(resources)
+        move_widgets(selection,resources_body,(self.mastery,self.age))
+        self.choices.setMaximumHeight(16777215);resources_body.addWidget(self.choices,1)
+        self.workspace_tabs.addTab(resources,'Ресурсы');self.workspace_tabs.addTab(result_split,'План ходки')
+        body.addWidget(self.xp);body.addWidget(self.stock_label)
+        self.xp.setMaximumHeight(52);self.stock_label.setMaximumHeight(36)
 
     def table(self,headers):
         t=QTableWidget(0,len(headers));t.setHorizontalHeaderLabels(headers);t.setEditTriggers(QAbstractItemView.NoEditTriggers);t.verticalHeader().hide();t.horizontalHeader().setStretchLastSection(True);readable_table(t);return t
@@ -206,6 +254,7 @@ class TripDialog(QDialog):
     def profile_changed(self,*args):
         self.states=self.store.states(self.player.text().strip() or 'Мой персонаж');self.refresh_profile();self.invalidate()
     def invalidate(self,*args):
+        if hasattr(self,'metrics'):self.metrics.update_values(['—']*4)
         self.record_button.setEnabled(False);self.plans=[];self.progress=[]
         self.audit_options=[];self.audit_button.setEnabled(False)
         for label,t in self.views:label.setText('Параметры изменились — нужен расчёт.');t.setRowCount(0)
@@ -347,6 +396,7 @@ class TripDialog(QDialog):
         except Exception as exc:
             logging.exception('Trip result display failed');self.invalidate();self.calculation_failed(str(exc))
     def display_plans(self,plans):
+        if hasattr(self,'workspace_tabs'):self.workspace_tabs.setCurrentIndex(1)
         self.plans=plans;self.progress=[]
         for n,plan in enumerate(plans):
             try:progress=simulate_progress(self.game,plan,self.start_states)
@@ -363,6 +413,7 @@ class TripDialog(QDialog):
             if plan.get('upper_bound') is not None and not plan['optimal']:heading+=f'; верхняя граница {money(plan["upper_bound"])}'
             inventory='остатки не включены в прибыль' if plan.get('chain') else 'возврат в запасе ≈ '+money(returned)
             label.setText(f'{heading}: прибыль¹ {money(plan["profit"])} • ROI {roi(margin)} • новая закупка {money(plan["purchase"])} / {money(self.budget.value())} • стоимость взятых запасов {money(plan.get("stock_value",0))} • вес {decimal_text(plan["weight"])} / {decimal_text(self.weight.value())} кг<br>Чистая выручка {money(revenue)} • {inventory} • плата станции {money(station)} • прочие {money(other)} (расходы нужны отдельно от закупки)<br>Фокус ≤ {focus_display} / {money(self.focus.value() if n else 0)}; с учётом прокачки ≈ {money(progress["focus"] if progress else None)}')
+            label.setToolTip(label.text());label.setText(heading);label.setMaximumHeight(52)
             t.setRowCount(len(plan['lines']))
             for row,line in enumerate(plan['lines']):
                 c=line['candidate'];calc=line['calc'];ops=line['operations']
@@ -383,6 +434,8 @@ class TripDialog(QDialog):
         if self.current_fingerprint()!=self.plan_fingerprint:self.status.setText('Расчёт по снимку '+self.snapshot_time+' готов. За время подбора появились новые цены — можно пересчитать; результат сохранён.')
         self.status.setToolTip(self.explanation);self.price_signature=self.market_signature();self.show_details()
     def show_details(self,*args):
+        if hasattr(self,'metrics') and self.plans:
+            plan=self.plans[self.tabs.currentIndex()];self.metrics.update_values([money(plan['profit']),money(plan['purchase']),decimal_text(plan['weight'])+' кг',money(plan['focus'])])
         if not self.plans:return
         n=self.tabs.currentIndex();plan=self.plans[n];progress=self.progress[n];goods=shopping(plan)
         existing=plan.get('existing',[]);self.shopping_table.setRowCount(len(goods)+len(existing))

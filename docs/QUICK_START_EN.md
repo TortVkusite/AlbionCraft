@@ -5,7 +5,7 @@
 3. Select the server (Europe / Americas / Asia), city, item family, tiers, enchantments and quality. Click **Update prices**. Profiles are separate per server; your game server must match.
 4. Check the age and source of quotes. **Unknown** means missing information;
    **≤** marks an upper bound before unknown expenses.
-5. Open **Haul planner**, choose buying and refining cities, available carry weight,
+5. Open **Trips** in the left sidebar, choose buying and refining cities, available carry weight,
    purchase budget and resources. Enter the station fee in silver per 100 nutrition.
    The station fee is already calculated: do not add it again under other costs.
 6. Choose profit in silver or ROI and run **Find maximum profit**. Compare the
@@ -44,6 +44,12 @@ Filters, exclusions, language and haul presets are saved. Personal character,
 container and preset names keep the spelling you entered.
 
 ## Updating and personal data
+
+For farming, open **Island**, choose the city, product and number of plots.
+Set Premium, mastery, specialization and available Focus; check feed per animal.
+Update prices and calculate. Profit is for a repeated harvest cycle with seeds or
+offspring kept for the next cycle. Initial purchases appear in a separate card.
+It covers selling crops or grown animals, not milk, eggs, butchering or saddling.
 
 Extract a new release into a new application folder. The Windows build reuses
 your data in `%LOCALAPPDATA%\AlbionCraft`; you do not need to copy settings into

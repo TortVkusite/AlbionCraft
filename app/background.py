@@ -78,6 +78,9 @@ def task(kind, data):
     if kind == 'trip':
         from .trip_task import calculate_trip
         return calculate_trip(data)
+    if kind == 'island':
+        from .island import calculate_islands
+        return calculate_islands(data)
     if kind == 'builds':
         from .builds import evaluate
         context={}

@@ -1,34 +1,36 @@
-# AlbionCraft 0.3.0 Beta — servers, Brecilien and responsive lists
+# AlbionCraft 0.4.0 Beta — dashboard and islands
 
-- Select Europe, Americas or Asia. Prices, orders, stock and progression are isolated per server; existing Europe profiles stay in place.
-- Brecilien is available in city selectors, quotes, own orders and production bonuses. Transport comparisons require a separate opt-in; route expenses remain part of your scenario.
-- Main scans, haul optimization, build variants, recommendations and Fame Credit allocation run in background processes. Changing filters cancels stale calculations.
-- Large tables load in batches. Armor navigation follows material → equipment slot → specialization; weapons follow family → item. Only the selected progress card is created.
-- History lookup reads recent records for selected items. Sorting and optimization include all selected items, across every page.
-- Updated local capture client attaches server identity. Data from an unknown or mismatched game server is rejected before storage.
+- Left navigation keeps Market, Trips, Orders, Builds, Character, Island and settings in one window. Settings scroll independently from results.
+- Crafting rows show material icons, quantity × unit price and purchase subtotals before returns. Artifacts appear separately; detailed columns remain available.
+- Trips separate resource selection from the plan and show profit, new purchases, weight and Focus in summary cards. Existing optimization formulas and saved profiles remain compatible.
+- Island calculator covers crops, herbs and growing pasture animals for sale. It compares repeat-cycle profit with and without Focus, keeps seeds/offspring for the next cycle and allocates a shared Focus budget. First-cycle purchases are separate.
+- Island calculations run in a background process. Missing prices remain unknown; farming settings are saved per server.
+
+For animals, check the editable feed quantity against the game. Milk, eggs,
+butchering, saddling and island/building costs are not included.
+
+Validation: 231 Python tests; Russian and English interface checks at 1440 × 850
+and 1100 × 720; offline checks in the Windows executable for catalog, localization,
+MILP, OCR, market scans, trips, recommendations and island calculations.
 
 Extract the entire Windows ZIP into a new folder and run `AlbionCraft.exe`.
-Python is not required. Your existing Windows profile is reused from
-`%LOCALAPPDATA%/AlbionCraft`. Close the previous version before updating.
-Use the bundled client through **Connect client…**; Npcap remains a separate installation.
+Python is not required. Close the previous version before updating; the existing
+profile is reused from `%LOCALAPPDATA%/AlbionCraft`. Use the bundled capture client
+through **Connect client…**; Npcap remains a separate installation.
 
-Validation: 221 Python tests, Go client tests, 24 interface states in both languages,
-and an offline stress check with all armor and 5,000 orders. On the development
-computer, the armor scan took about 2 seconds and order loading about 2.3 seconds;
-UI events continued throughout. Performance depends on your computer and selection.
-Live game capture on Americas/Asia has not been exercised here.
-
-This remains a beta. Quotes and observed volumes may be incomplete or outdated.
-Profit and sale times are estimates. The Windows binary is unsigned.
+This remains a beta. Profit, yields and sale times are estimates based on available
+quotes and your settings. The Windows binary is unsigned.
 
 ---
 
-Добавлены **Europe / Americas / Asia** и **Brecilien**. Данные серверов разделены,
-прежний профиль Europe сохраняется. Тяжёлые расчёты выполняются в фоне,
-таблицы заполняются порциями. Броня разделена по материалу и части экипировки;
-специализация открывается при выборе. Поиск и страницы сохраняют доступ ко всем узлам.
+Обновлён интерфейс: разделы слева, настройки отдельно от результатов, материалы
+с иконками и ценами прямо в таблице. Ходки разделены на выбор ресурсов и план;
+над результатом видны прибыль, закупка, вес и фокус.
+
+Добавлен «Остров»: культуры, травы и выращивание животных на продажу, возврат
+семян/приплода, корм, Premium и распределение фокуса. Начальная закупка показана
+отдельно от прибыли повторного цикла. Корм на животное сверь с игрой; молоко,
+яйца, разделка, седлание и строительство пока не включены.
 
 Для обновления закрой старую версию и распакуй ZIP целиком в отдельную папку.
-Запускай обновлённый клиент через приложение. Сервер игры должен совпадать с выбранным:
-данные другого или неизвестного сервера в текущий профиль не записываются.
-Для Brecilien расходы и доступность перевозки учитывай в своём сценарии.
+Личный профиль сохраняется. Проверены 231 тест и оба языка на двух размерах окна.

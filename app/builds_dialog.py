@@ -13,6 +13,7 @@ from .item_names import item_name
 from .ui_layout import FlowLayout,explanation,readable_table,compact_combos,fit_window
 from .background import ProcessWorker
 from .responsive import GuiBatch
+from .number_fields import NumberBox
 
 
 class BuildFetch(QThread):
@@ -44,7 +45,7 @@ class BuildsDialog(QDialog):
         for n,label in enumerate(QUALITY_NAMES,1):self.quality.addItem(label,n)
         for box in (self.activity,self.city,self.tier,self.enchantment,self.quality):
             box.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon);box.setMinimumContentsLength(8)
-        self.budget=QSpinBox();self.budget.setRange(0,1000000000);self.budget.setSingleStep(50000);self.budget.setSpecialValueText('Без ограничения');self.budget.setValue(int(prefs.get('budget',300000)))
+        self.budget=NumberBox();self.budget.setRange(0,1000000000);self.budget.setSingleStep(50000);self.budget.setSpecialValueText('Без ограничения');self.budget.setValue(int(prefs.get('budget',300000)))
         self.sort=QComboBox();self.sort.addItem('Популярные в бюджете','popular');self.sort.addItem('Дешёвые сначала','cheap')
         for n,(name,control) in enumerate([('Контент',self.activity),('Город',self.city),('Тир',self.tier),('Чары',self.enchantment),('Качество',self.quality),('Бюджет',self.budget),('Сортировка',self.sort)]):
             controls.addWidget(QLabel(name),n//4,(n%4)*2)
@@ -79,7 +80,25 @@ class BuildsDialog(QDialog):
         self.refresh();QTimer.singleShot(0,lambda:self.load_site(False))
         compact_combos(self)
         for table in (self.build_table,self.parts,self.common):readable_table(table)
+        self.redesign(layout,controls)
         fit_window(self)
+    def redesign(self,layout,controls):
+        from .dashboard import panel,title
+        remaining=[]
+        while layout.count():
+            item=layout.takeAt(0)
+            if item.layout()!=controls:remaining.append(item)
+        layout.addWidget(title('Билды / рынок'))
+        row=QHBoxLayout();layout.addLayout(row,1);scroll,settings=panel();row.addWidget(scroll)
+        while controls.count():
+            item=controls.takeAt(0)
+            if widget:=item.widget():
+                widget.setMinimumWidth(0);settings.addWidget(widget)
+        settings.addStretch()
+        right=QWidget();body=QVBoxLayout(right);body.setContentsMargins(0,0,0,0);row.addWidget(right,1)
+        for item in remaining:
+            if widget:=item.widget():body.addWidget(widget,1 if isinstance(widget,QSplitter) else 0)
+            elif child:=item.layout():body.addLayout(child)
     def table(self,headers):
         table=QTableWidget(0,len(headers));table.setHorizontalHeaderLabels(headers);table.setEditTriggers(QAbstractItemView.NoEditTriggers);table.setSelectionBehavior(QAbstractItemView.SelectRows);table.setSelectionMode(QAbstractItemView.SingleSelection);table.verticalHeader().hide();table.horizontalHeader().setStretchLastSection(True);return table
     def open_loadout(self,selected=False):

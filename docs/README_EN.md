@@ -4,7 +4,7 @@ An independent Windows desktop companion for **Albion Online Europe, Americas an
 Available in **English and Russian**. Plan refining trips, compare crafting/trading
 opportunities, track orders and character progression, and price personal loadouts.
 
-[Download the Windows ZIP](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.3.0/AlbionCraft-0.3.0-windows-x64.zip), extract the whole folder and run
+[Download the Windows ZIP](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.4.0/AlbionCraft-0.4.0-windows-x64.zip), extract the whole folder and run
 `AlbionCraft.exe`. Python is not required. Use **Language / Язык → English** in the menu.
 Your language is saved; new installations follow the system language. Existing
 Russian profiles keep Russian until you change it. Item names use the game's
@@ -13,6 +13,17 @@ official English localization, and search accepts English, Russian and item IDs.
 [Quick start](QUICK_START_EN.md) · [Русский](../README.md) · [Releases](https://github.com/TortVkusite/AlbionCraft/releases)
 
 ![Haul planner with synthetic demo prices](screenshots/trip-en.png)
+
+Navigate between Market, Trips, Orders, Builds, Character and Island in the left sidebar.
+Settings scroll independently from results, and switching pages preserves your input.
+Crafting rows show material icons, quantity × unit price and the purchase subtotal
+before resource returns; artifacts have a separate column.
+
+The Island calculator covers crops, herbs and growing pasture animals for sale.
+It compares repeat-cycle profit with and without Focus, reserves seeds or offspring
+for the next cycle and distributes a shared Focus budget. First-cycle purchases are
+shown separately. Enter feed per animal to match the game; milk, eggs, butchering,
+saddling and building costs are not included. Missing prices remain unknown.
 
 Source installation requires Python 3.14 x64:
 

@@ -84,6 +84,16 @@ def check(output):
                 budget=1000,weight=1000,focus=100,repeat=True,objective='profit'))
             assert plans['plans'][0]['lines'] and plans['plans'][0]['profit']>0
             result['background_scan_trip_recommendations']='ok'
+            from app.island import farming_data
+            plant=next(p for p in farming_data()['products'] if p['id']=='T1_FARM_CARROT_SEED')
+            farm_prices=[dict(item_id=uid,city='Thetford',quality=1,sell_price_min=value,buy_price_max=value,
+                sell_price_min_date=stamp,buy_price_max_date=stamp)
+                for uid,value in [(plant['id'],2000),(plant['product'],100)]]
+            islands=calculate('island',dict(islands=[dict(city='Thetford',product=plant['id'],plots=1,mastery=100,specialization=100)],
+                prices=farm_prices,premium=True,sale='order',any_age=True,focus=1000))
+            assert islands[0]['selected']['profit']>islands[0]['plain']['profit']
+            window.open_trip();window.open_island();window.show_market();app.processEvents()
+            result['dashboard_island_subprocess']='ok'
             from app.regions import region_root
             assert region_root(data_root(),'west')!=data_root() and region_root(data_root(),'east')!=data_root()
             result['server_profiles']='ok'
