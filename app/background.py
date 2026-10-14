@@ -75,6 +75,9 @@ def task(kind, data):
     if kind == 'scan':
         from .scan_result import calculate_view
         return calculate_view(data)
+    if kind == 'live_market':
+        from .live_refresh import snapshot
+        return snapshot(data)
     if kind == 'trip':
         from .trip_task import calculate_trip
         return calculate_trip(data)

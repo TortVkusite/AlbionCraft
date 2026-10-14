@@ -107,6 +107,11 @@ class Window(QMainWindow):
             action.triggered.connect(lambda checked=False,code=code:self.change_language(code))
         self.recipes=load_catalog(self.root);self.api=AlbionAPI(self.region);self.worker=None;self.last=None;self.visible=[];self.recommendation_rows=[]
         self.render_worker=None;self.render_generation=0;self.pending_render=False
+        from .live_refresh import LiveRefresh
+        self.market_version=0;self.live_refresh=LiveRefresh(self)
+        self.live_refresh.ready.connect(self.live_received)
+        self.live_refresh.failed.connect(lambda message:self.local_status.setText(tr('Ошибка обновления рынка: ')+message))
+        self.capture_timer=QTimer(self);self.capture_timer.setSingleShot(True);self.capture_timer.setInterval(250);self.capture_timer.timeout.connect(self.refresh_stream)
         self.render_timer=QTimer(self);self.render_timer.setSingleShot(True);self.render_timer.timeout.connect(self.render_now)
         self.table_batch=GuiBatch(self);self.table_batch.failed.connect(lambda message:self.status.setText(message))
         self.settings.setdefault('auto_rules',True)
@@ -407,24 +412,24 @@ class Window(QMainWindow):
         if save:self.save_local_settings()
         if checked and (self.local_receiver is None or not self.local_receiver.isRunning()):
             self.local_receiver=LocalReceiver(self.root/'prices.sqlite',self.settings['local_token'],region=self.region)
-            self.local_receiver.finished.connect(lambda:self.local_changed(True,save=False) if self.local_enabled.isChecked() and not self.closing else None)
+            self.local_receiver.finished.connect(self.local_stopped)
             self.local_receiver.status.connect(self.local_status.setText);self.local_receiver.updated.connect(self.local_updated);self.local_receiver.start()
         elif not checked and self.local_receiver:
             self.local_receiver.requestInterruption();self.local_status.setText('Из игры: выключено')
         self.refresh_stream()
+    def local_stopped(self):
+        worker=self.sender()
+        if worker is self.local_receiver:self.local_receiver=None
+        if worker:worker.deleteLater()
+        if self.local_enabled.isChecked() and not self.closing:
+            QTimer.singleShot(1500,lambda:self.local_changed(True,save=False) if self.local_enabled.isChecked() and not self.closing else None)
     def local_updated(self,count):
         if not count:return
         self.local_count+=max(0,count)
         from datetime import datetime
         self.local_status.setText(f'Из игры: получено {self.local_count} ордеров • '+(f'история: {abs(count)} точек • ' if count<0 else '')+f'последнее наблюдение {datetime.now().strftime("%H:%M")} • {self.region_label}')
         if self.last is None:self.last=dict(prices=[],api_prices=[],histories=[],cached=False,warning='Из твоей игры: только просмотренные ордера; история спроса загружается отдельно.')
-        self.refresh_stream()
-        if count>0 and self.last:
-            quotes=[p for p in self.last['prices'] if p.get('local_observations')]
-            sides=[(p,side) for p in quotes for side in ('sell_price_min','buy_price_max') if p['local_observations'].get(side)]
-            if sides:
-                p,side=max(sides,key=lambda pair:pair[0]['local_observations'][pair[1]+'_date'])
-                self.local_status.setText(self.local_status.text()+f'\nПоследняя цена: {item_name(p["item_id"])} • {p["city"]} • '+('предложение продажи: ' if side=='sell_price_min' else 'заказ покупки: ')+money(p['local_observations'][side]))
+        if not self.capture_timer.isActive():self.capture_timer.start()
     def configure_bounds(self):
         dialog=BoundsDialog(self,self.settings.get('result_limits',{}))
         if dialog.exec():
@@ -494,31 +499,21 @@ class Window(QMainWindow):
             self.local_status.setText(f'Albion Data Client завершился (код {code}). Ошибка сохранена в logs/data-client-output.log; запусти клиент повторно через «Подключить клиент…».')
             self.client_process=None
         if self.last is None:return
-        # Recheck expiry even when no new observations arrive.
+        # Database waits and decoding happen in the worker, never a GUI slot.
         primary=self.last.get('api_prices',self.last['prices'])
         self.last['api_prices']=primary
         api_history=self.last.get('api_histories',self.last['histories']);self.last['api_histories']=api_history
-        histories={(h['item_id'],h['location'],h['quality']):h for h in api_history}
-        if self.live.isChecked():
-            ids=self.required_ids(self.filtered())
-            cache=Cache(self.root/'prices.sqlite')
-            try:observed=cache.stream_prices(ids)
-            finally:cache.close()
-            merged=supplement(primary,observed)
-        else:merged=primary
-        if hasattr(self,'local_enabled') and self.local_enabled.isChecked():
-            store=LocalStore(self.root/'prices.sqlite')
-            try:
-                # Capture is independent of display filters: resources viewed before a
-                # recipe is selected must also be available on its very first render.
-                local=store.prices()
-                for h in store.histories({r.item_id for r in self.filtered()}):histories[(h['item_id'],h['location'],h['quality'])]=h
-            finally:store.close()
-            merged=merge_local(merged,local)
-        merged_history=list(histories.values())
-        if merged!=self.last['prices'] or merged_history!=self.last['histories']:
-            self.last['prices']=merged;self.last['histories']=merged_history;self.render()
+        recipes=self.filtered()
+        self.live_refresh.request(dict(path=str(self.root/'prices.sqlite'),prices=primary,histories=api_history,
+            ids=self.required_ids(recipes),history_ids={r.item_id for r in recipes},
+            live=self.live.isChecked(),local=hasattr(self,'local_enabled') and self.local_enabled.isChecked(),context=self.live_context()))
         self.stream_dirty=False
+    def live_context(self):
+        return (self.market_version,self.live.isChecked(),hasattr(self,'local_enabled') and self.local_enabled.isChecked())
+    def live_received(self,data):
+        if self.closing or self.last is None or data['context']!=self.live_context():return
+        if data['prices']!=self.last['prices'] or data['histories']!=self.last['histories']:
+            self.last['prices']=data['prices'];self.last['histories']=data['histories'];self.render()
     def rules_changed(self,*args,save=True):
         self.settings.update(auto_rules=self.auto_rules.isChecked(),premium=self.premium.isChecked())
         active=effective_settings(self.settings)
@@ -619,6 +614,7 @@ class Window(QMainWindow):
     def error(self,message):
         self.status.setText('Ошибка API. Предыдущие результаты сохранены.');QMessageBox.warning(self,'Ошибка API',message)
     def received(self,data):
+        self.market_version+=1
         old=self.last or {}
         prices={(p['item_id'],p['city'],p['quality']):p for p in old.get('api_prices',old.get('prices',[]))}
         prices.update({(p['item_id'],p['city'],p['quality']):p for p in data['prices']})
@@ -807,10 +803,11 @@ class Window(QMainWindow):
         self.closing=True;self.render_timer.stop();self.table_batch.cancel()
         if first:
             if desktop:desktop.shutdown()
+            self.live_refresh.stop()
             self.centralWidget().setEnabled(False);self.menuBar().setEnabled(False)
             for name in ('builds_dialog','recommendation_dialog','orders_page','profile_page','preferences_page'):
                 if dialog:=getattr(self,name,None):dialog.close()
-        for timer_name in ('load_timer','stream_timer','view_timer'):
+        for timer_name in ('load_timer','stream_timer','view_timer','capture_timer'):
             if timer:=getattr(self,timer_name,None):timer.stop()
         tracker=getattr(self,'builds_dialog',None)
         recommendations=getattr(self,'recommendation_dialog',None)
@@ -818,7 +815,7 @@ class Window(QMainWindow):
         if first:
             if trip:trip.close()
             if island:island.close()
-        workers=[self.worker,self.render_worker,self.local_receiver,self.stream,getattr(tracker,'worker',None),getattr(tracker,'calculation_worker',None),getattr(recommendations,'calculation_worker',None),getattr(trip,'worker',None),getattr(island,'worker',None),getattr(island,'calculation',None)]
+        workers=[self.worker,self.render_worker,self.live_refresh.worker,self.local_receiver,self.stream,getattr(tracker,'worker',None),getattr(tracker,'calculation_worker',None),getattr(recommendations,'calculation_worker',None),getattr(trip,'worker',None),getattr(island,'worker',None),getattr(island,'calculation',None)]
         for worker in workers:
             if worker and worker.isRunning():worker.requestInterruption()
         if any(worker and worker.isRunning() for worker in workers):
@@ -828,7 +825,10 @@ class Window(QMainWindow):
         event.accept()
 
 def main():
-    logging.basicConfig(filename=ROOT/'albioncraft.log',level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s')
+    logging.basicConfig(filename=ROOT/'albioncraft.log',level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s',force=True)
+    def report_exception(kind,value,trace):
+        logging.error('Unhandled application exception',exc_info=(kind,value,trace))
+    sys.excepthook=report_exception
     # pythonw has no stderr: preserve native crash stacks in a dedicated file.
     import faulthandler
     global _crash_output

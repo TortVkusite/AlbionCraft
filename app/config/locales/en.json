@@ -1502,5 +1502,6 @@
   "%. Цены постоянны; детёныши сохраняются для следующего цикла, исходы независимы.": "%. Prices are constant; offspring are kept for the next cycle and outcomes are independent.",
   "Вернулось детёнышей": "Offspring returned",
   "Вероятность": "Probability",
-  "Прибыль цикла": "Cycle profit"
+  "Прибыль цикла": "Cycle profit",
+  "Ошибка обновления рынка: ": "Market update failed: "
 }

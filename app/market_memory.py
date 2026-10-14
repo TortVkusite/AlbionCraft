@@ -63,16 +63,7 @@ class MarketMemory:
     def remove_bonus(self,uid):
         with self.db:self.db.execute('DELETE FROM production_bonuses WHERE id=?',(uid,))
     def active(self,now=None):
-        now=now or datetime.now(timezone.utc)
-        result={}
-        for b in reversed(self.bonuses()):
-            if b['confirmed'] and datetime.fromisoformat(b['starts'])<=now<datetime.fromisoformat(b['ends']):
-                previous=result.get(b['category']);result[b['category']]=dict(b)
-                if previous:
-                    result[b['category']]['percent']+=previous['percent']
-                    result[b['category']]['starts']=max(b['starts'],previous['starts'])
-                    result[b['category']]['ends']=min(b['ends'],previous['ends'])
-        return result
+        return active_bonuses(self.bonuses(),now)
     def arrivals(self,item,city,side,quality=1):
         points=self.db.execute('SELECT id,stamp,price FROM order_history WHERE item=? AND city=? AND quality=? AND side=? ORDER BY stamp DESC LIMIT 10000',(item,city,quality,side))
         first={};stamps=set()
@@ -89,12 +80,39 @@ def sale_scenario(quantity,per_day,share=10,next_check_hours=12):
     rate=D(str(per_day))*D(str(share))/100;qty=D(str(quantity));days=qty/rate
     return dict(days=days,fast_days=days/2,slow_days=days*2,remaining=max(D(0),qty-rate*D(str(next_check_hours))/24))
 
+def active_bonuses(rows,now=None):
+    now=now or datetime.now(timezone.utc);result={}
+    for b in reversed(rows):
+        if b['confirmed'] and datetime.fromisoformat(b['starts'])<=now<datetime.fromisoformat(b['ends']):
+            previous=result.get(b['category']);result[b['category']]=dict(b)
+            if previous:
+                result[b['category']]['percent']+=previous['percent']
+                result[b['category']]['starts']=max(b['starts'],previous['starts'])
+                result[b['category']]['ends']=min(b['ends'],previous['ends'])
+    return result
+
+
+_bonus_rows={}
+
 def bonus_settings(root,settings):
+    from pathlib import Path
     result=dict(settings);result['production_bonuses']={}
     if settings.get('use_bonuses',True):
-        store=MarketMemory(root/'prices.sqlite')
-        try:result['production_bonuses']=store.active()
-        finally:store.close()
+        path=Path(root)/'prices.sqlite';key=str(path.resolve());rows=_bonus_rows.get(key,[])
+        if path.is_file():
+            # Tray/UI polling must neither migrate the schema nor wait ten
+            # seconds behind capture writes. Reuse confirmed rows while busy;
+            # their expiry is still checked against the current clock.
+            db=sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True,timeout=.025)
+            try:
+                rows=[dict(id=i,category=c,percent=p,starts=s,ends=e,source=src,confirmed=bool(ok)) for i,c,p,s,e,src,ok in db.execute('SELECT * FROM production_bonuses ORDER BY starts DESC')]
+                _bonus_rows[key]=rows
+            except sqlite3.OperationalError as exc:
+                if 'no such table' in str(exc):rows=[];_bonus_rows[key]=[]
+                elif 'locked' not in str(exc) and 'busy' not in str(exc):raise
+            finally:db.close()
+        else:_bonus_rows.pop(key,None);rows=[]
+        result['production_bonuses']=active_bonuses(rows)
     return result
 
 def calibration(entries,buy=None,craft=None):

@@ -6,6 +6,48 @@ import time
 import traceback
 
 
+def check_live_updates(app,window,folder):
+    """Exercise the GUI under an exclusive capture-write lock and packet burst."""
+    from pathlib import Path
+    from datetime import datetime,timezone,timedelta
+    from PySide6.QtCore import QTimer
+    from .local_market import LocalStore
+    from .market_memory import MarketMemory,bonus_settings
+    import sqlite3
+    path=Path(folder)/'prices.sqlite';now=datetime.now(timezone.utc)
+    store=LocalStore(path)
+    store.save([('probe','T2_ORE','Thetford',1,'sell_price_min',23,100,now.isoformat(),(now+timedelta(days=1)).isoformat())]);store.close()
+    memory=MarketMemory(path);memory.add_bonus('ore',10,(now-timedelta(hours=1)).isoformat(),(now+timedelta(hours=1)).isoformat(),'Probe');memory.close()
+    assert bonus_settings(Path(folder),window.settings)['production_bonuses']['ore']['percent']==10
+    window.local_enabled.blockSignals(True);window.local_enabled.setChecked(True);window.local_enabled.blockSignals(False)
+    window.live.blockSignals(True);window.live.setChecked(False);window.live.blockSignals(False)
+    window.last=dict(prices=[],api_prices=[],histories=[],api_histories=[])
+    original_render=window.render;window.render=lambda *args:None
+    db=sqlite3.connect(path);db.execute('BEGIN EXCLUSIVE')
+    beats=[time.monotonic()];heartbeat=QTimer(window);heartbeat.setInterval(30);heartbeat.timeout.connect(lambda:beats.append(time.monotonic()));heartbeat.start()
+    burst=QTimer(window);burst.setInterval(10);count=[0]
+    def packet():
+        count[0]+=1;window.local_updated(50)
+        if count[0]>=100:burst.stop()
+    burst.timeout.connect(packet);burst.start()
+    release=QTimer(window);release.setSingleShot(True);release.timeout.connect(db.rollback);release.start(1500)
+    pending=[]
+    def bonus_poll():pending.append(bonus_settings(Path(folder),window.settings)['production_bonuses']['ore']['percent'])
+    QTimer.singleShot(100,bonus_poll)
+    try:
+        end=time.monotonic()+15;found=False
+        while time.monotonic()<end:
+            app.processEvents();time.sleep(.005)
+            found=any(p['item_id']=='T2_ORE' and p.get('local_observations',{}).get('sell_price_min')==23 for p in window.last['prices'])
+            if found and count[0]==100 and not window.live_refresh.worker and not window.live_refresh.pending:break
+        maximum=max(b-a for a,b in zip(beats,beats[1:]))
+        assert maximum<.75,('UI blocked by capture writes',maximum)
+        assert found and count[0]==100 and pending==[10],(found,count,pending)
+        return dict(packets=count[0],max_ui_delay=round(maximum,3),latest_price=23)
+    finally:
+        heartbeat.stop();burst.stop();release.stop();db.rollback();db.close();window.render=original_render
+
+
 def check(output):
     output=output.resolve();output.parent.mkdir(parents=True,exist_ok=True)
     result={}
@@ -126,6 +168,7 @@ def check(output):
             text=calculate('bonus_ocr',dict(image=image.getvalue()))
             assert 'Булавы' in text and '20%' in text,text
             result['bonus_cyrillic_ocr']='ok'
+            result['capture_burst_responsiveness']=check_live_updates(app,window,folder)
             window.close();app.processEvents()
             set_language('ru')
             result['assets']='ok' if (resource_root()/'app/assets/albioncraft.svg').is_file() else 'missing'
