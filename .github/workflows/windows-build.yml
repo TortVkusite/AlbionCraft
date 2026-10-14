@@ -54,6 +54,12 @@ jobs:
       - name: Verify frozen executable
         shell: pwsh
         run: |
+          # Hosted Windows runners can expose TEMP through an 8.3 alias.
+          # Use a canonical workspace path for the isolated profile assertion.
+          $smokeTemp=Join-Path $PWD 'build/smoke-temp'
+          New-Item -ItemType Directory -Force $smokeTemp | Out-Null
+          $env:TEMP=$smokeTemp
+          $env:TMP=$smokeTemp
           $report=Join-Path $PWD 'build/frozen-check.json'
           $quotedReport='"'+$report+'"'
           $p=Start-Process -FilePath dist/AlbionCraft/AlbionCraft.exe -ArgumentList '--smoke-test', $quotedReport -WindowStyle Hidden -Wait -PassThru
