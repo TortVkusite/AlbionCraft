@@ -64,7 +64,7 @@ def check(output):
             from app.fame_dialog import FameWorker
             from app.stock_screen import quantity_reader
             import numpy as np
-            assert data_root()==Path(folder)
+            assert data_root()==Path(folder).resolve()
             recipes=load_catalog(data_root());game=GameProgression(data_root())
             assert len(recipes)>100 and game.costs('COMBAT_SWORDS_SWORD')[0]>0
             assert 'Слиток' in item_name('T2_METALBAR')

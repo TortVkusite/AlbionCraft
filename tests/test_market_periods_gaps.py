@@ -86,9 +86,10 @@ class MarketPeriodsGapsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             store=LocalStore(Path(folder)/'prices.sqlite')
             try:
+                base=datetime.now(timezone.utc)
                 for scale in (2,0,1):
                     h=decode_history(history(scale),{42:'T4_MAIN_SWORD'},NOW)
-                    h['observed']=(datetime.now(timezone.utc)+timedelta(seconds=scale-3)).isoformat();store.save_history(h)
+                    h['observed']=(base+timedelta(seconds=scale-3)).isoformat();store.save_history(h)
                 self.assertEqual(store.db.execute('SELECT COUNT(*) FROM local_history_windows').fetchone()[0],3)
                 self.assertEqual(store.histories({'T4_MAIN_SWORD'})[0]['period_days'],28)
                 h=decode_history(history(0),{42:'T4_MAIN_SWORD'},NOW);h['observed']=datetime.now(timezone.utc).isoformat();store.save_history(h)
