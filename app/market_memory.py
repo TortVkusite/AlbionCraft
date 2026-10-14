@@ -7,6 +7,7 @@ def initialize(db):
     db.execute('CREATE TABLE IF NOT EXISTS price_history (item TEXT,city TEXT,quality INTEGER,side TEXT,stamp TEXT,price REAL,source TEXT,PRIMARY KEY(item,city,quality,side,stamp,source))')
     db.execute('CREATE INDEX IF NOT EXISTS price_timeline ON price_history(item,city,quality,stamp)')
     db.execute('CREATE TABLE IF NOT EXISTS volume_history (item TEXT,city TEXT,quality INTEGER,stamp TEXT,count INTEGER,price REAL,source TEXT,PRIMARY KEY(item,city,quality,stamp,source))')
+    db.execute('CREATE TABLE IF NOT EXISTS volume_windows (item TEXT,city TEXT,quality INTEGER,period INTEGER,bucket INTEGER,stamp TEXT,count INTEGER,price REAL,source TEXT,seen TEXT,PRIMARY KEY(item,city,quality,period,bucket,stamp,source))')
     db.execute('CREATE TABLE IF NOT EXISTS order_history (id TEXT,item TEXT,city TEXT,quality INTEGER,side TEXT,price INTEGER,amount INTEGER,stamp TEXT,PRIMARY KEY(id,stamp))')
     db.execute('CREATE TABLE IF NOT EXISTS production_bonuses (id INTEGER PRIMARY KEY,category TEXT,percent REAL,starts TEXT,ends TEXT,source TEXT,confirmed INTEGER)')
 
@@ -25,7 +26,7 @@ def archive_prices(db,rows,source='API'):
     db.executemany('INSERT OR IGNORE INTO price_history VALUES(?,?,?,?,?,?,?)',values)
 
 def archive_volumes(db,rows,source='API'):
-    initialize(db);values=[]
+    initialize(db);values=[];windows=[]
     for row in rows:
         if not isinstance(row,dict) or not row.get('item_id') or not row.get('location'):continue
         for p in row.get('data',[]):
@@ -37,7 +38,10 @@ def archive_volumes(db,rows,source='API'):
             dt=dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
             if dt.year<2000 or dt>datetime.now(timezone.utc):continue
             values.append((row['item_id'],row['location'],row.get('quality',1),dt.isoformat(),count,price,source))
+            period=row.get('period_days',7);bucket=row.get('bucket_hours',24)
+            if period in (1,7,28) and bucket in (1,6,24):windows.append((row['item_id'],row['location'],row.get('quality',1),period,bucket,dt.isoformat(),count,price,source,row.get('observed') or datetime.now(timezone.utc).isoformat()))
     db.executemany('INSERT OR REPLACE INTO volume_history VALUES(?,?,?,?,?,?,?)',values)
+    db.executemany('INSERT OR REPLACE INTO volume_windows VALUES(?,?,?,?,?,?,?,?,?,?)',windows)
 
 class MarketMemory:
     def __init__(self,path):
@@ -46,10 +50,16 @@ class MarketMemory:
         return [dict(stamp=s,side=side,price=p,source=source) for s,side,p,source in self.db.execute('SELECT stamp,side,price,source FROM price_history WHERE item=? AND city=? AND quality=? ORDER BY stamp DESC LIMIT ?',(item,city,quality,limit))]
     def volumes(self,item,city,quality=1,limit=365):
         # A local/API observation of the same day must not double sales volume.
+        selected=self.db.execute('SELECT period,bucket FROM volume_windows WHERE item=? AND city=? AND quality=? ORDER BY seen DESC LIMIT 1',(item,city,quality)).fetchone()
+        if selected:
+            period,bucket=selected;unique={}
+            for stamp,count,price,source in self.db.execute('SELECT stamp,count,price,source FROM volume_windows WHERE item=? AND city=? AND quality=? AND period=? AND bucket=? ORDER BY stamp DESC,seen DESC LIMIT ?',(item,city,quality,period,bucket,limit*2)):
+                if stamp not in unique:unique[stamp]=dict(stamp=stamp,count=count,price=price,source=source,period_days=period,bucket_hours=bucket)
+            return list(unique.values())[:limit]
         rows=self.db.execute('SELECT stamp,count,price,source FROM volume_history WHERE item=? AND city=? AND quality=? ORDER BY stamp DESC,source DESC LIMIT ?',(item,city,quality,limit*2))
         unique={}
         for stamp,count,price,source in rows:
-            if stamp not in unique:unique[stamp]=dict(stamp=stamp,count=count,price=price,source=source)
+            if stamp not in unique:unique[stamp]=dict(stamp=stamp,count=count,price=price,source=source,period_days=7,bucket_hours=6 if source=='Local' else 24)
         return list(unique.values())[:limit]
     def bonuses(self):
         return [dict(id=i,category=c,percent=p,starts=s,ends=e,source=src,confirmed=bool(ok)) for i,c,p,s,e,src,ok in self.db.execute('SELECT * FROM production_bonuses ORDER BY starts DESC LIMIT 100')]

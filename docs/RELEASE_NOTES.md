@@ -1,34 +1,38 @@
-# AlbionCraft 0.5.1 Beta — market capture responsiveness
+# AlbionCraft 0.5.2 Beta — daily sales and discounted batches
 
-Fixes a GUI freeze while incoming game-market data writes to SQLite. Reading and
-merging live prices now runs in an isolated process. Bursts keep one active job
-and one newest pending request; failed updates preserve the displayed prices.
-Old results cannot overwrite newer API data or re-enable disabled observations.
+- Fixes local history ingestion for all three game views: 24 hours, seven days and
+  four weeks. Views are saved separately; the latest viewed snapshot drives demand.
+- Sales volume is always units per day. Tooltips show period and bucket coverage;
+  short/long windows describe different evidence, not sale-probability guarantees.
+  Incomplete buckets and duplicate points are excluded; missing buckets remain unknown.
+- New **Recommendations → Discounted batches** tab: observed offer-price gaps,
+  quantities to buy, purchase cost, after-fee resale profit, cash limits and demand.
+  Double-click to inspect all seen levels and formulas. Defaults: 10% gap, 15-minute age.
+- Volume archives preserve period/bucket size so overlapping views are not added.
+  Existing settings and observations are retained.
 
-Tray bonus polling no longer migrates tables or waits behind long database locks.
-Previously confirmed bonuses retain their real expiry while the database is busy.
-Receiver restarts are delayed when its port is unavailable, and callback errors
-are logged in the Windows build without a console.
+A resale scenario buys the entire cheap prefix and lists one silver below the
+next observed price. That offer is not proven demand or guaranteed fair value.
+The full market, fresh competition and disappeared orders may change the result.
+Reopen four-week history previously discarded by the older version.
 
-Validation: 247 Python tests, including 100 consecutive capture updates during an
-exclusive database lock, and offline Windows executable checks with the same
-responsiveness scenario, calculations and both OCR models. No game interaction or
-personal-profile changes are required for the tests.
+Validation: 257 Python tests; RU/EN layout checks at 1100 × 720; isolated Windows
+checks for all history views, discounted-batch calculations, background market
+responsiveness, optimizer, backups, bank OCR and Cyrillic bonus OCR.
 
-Extract the **entire** Windows ZIP into a new folder and run `AlbionCraft.exe`.
-Fully exit the old version before updating. Your existing profile is retained.
-If Windows startup is enabled, save that setting again after moving the folder.
-The binary is unsigned.
+Exit the previous version completely, extract the entire Windows ZIP and run
+`AlbionCraft.exe`. Your existing profile is retained. Save the Windows-startup
+setting again if moving the installation folder. The binary is unsigned.
 
-[Usage details](https://github.com/TortVkusite/AlbionCraft/blob/v0.5.1/docs/DECISION_TOOLS.md)
+[Usage details](https://github.com/TortVkusite/AlbionCraft/blob/v0.5.2/docs/DECISION_TOOLS.md)
 
 ---
 
-Исправлена блокировка интерфейса при поступлении данных рынка: чтение базы и
-объединение цен выполняются отдельно от окна, частые обновления объединяются.
-Старые результаты не подменяют новые данные; временная блокировка базы не
-отключает уже подтверждённые бонусы до окончания их срока.
+История рынка теперь принимается за сутки, неделю и 4 недели. В таблице всегда
+показаны продажи за день, под числом — период; при наведении — полнота данных.
+В рекомендациях добавлены «Дешёвые партии»: разрывы между увиденными уровнями
+цен, количество, закупка, комиссии, прибыль и подробный расчёт по двойному клику.
 
-Проверены 247 тестов и готовая Windows-сборка, включая поток из 100 обновлений
-при занятой базе. Для обновления закрой предыдущую версию и распакуй ZIP целиком.
-Личный профиль сохраняется. Обмен данными между пользователями не добавлялся.
+Проверены 257 тестов, оба языка и Windows-сборка. Старую историю за 4 недели нужно
+открыть в игре заново: предыдущая версия её не сохраняла. Высокая следующая цена
+является сценарием перепродажи, а не обещанием прибыли или быстрой продажи.

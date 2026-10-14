@@ -24,7 +24,7 @@ def scan(recipes, prices, histories, buy_cities, craft_cities, sell_cities, sett
         return remove_overpriced_masterpieces(rows,prices,age_limit)
     settings=effective_settings(settings)
     index={(p.get('item_id'),p.get('city'),p.get('quality')):p for p in prices if isinstance(p,dict)}
-    hist={(h.get('item_id'),h.get('location'),h.get('quality')):h.get('data',[]) for h in histories if isinstance(h,dict)}
+    hist={(h.get('item_id'),h.get('location'),h.get('quality')):h for h in histories if isinstance(h,dict)}
     results=[]
     mode=settings.get('sale_mode','order')
     side='buy_price_max' if mode=='instant' else 'sell_price_min'
@@ -79,7 +79,7 @@ def scan(recipes, prices, histories, buy_cities, craft_cities, sell_cities, sett
                     if status!='свежее': row_issues.append('Продажа: '+status)
                     hist_data=hist.get((recipe.item_id,sell_city,quality),[])
                     demand_info=demand(hist_data)
-                    if demand_info['kind']=='unknown': row_issues.append('Нет истории за 7 дней')
+                    if demand_info['kind']=='unknown': row_issues.append('Нет истории продаж')
                     base=None; focus=None
                     pending=[]
                     if automatic:row_issues.append('Городские бонусы из игровой выгрузки; дневной бонус не включён')

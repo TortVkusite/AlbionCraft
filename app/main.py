@@ -195,7 +195,7 @@ class Window(QMainWindow):
         local_setup=QPushButton('Подключить клиент…');local_bar.addWidget(local_setup);local_setup.clicked.connect(self.configure_local)
         self.local_status=QLabel('Из игры: выключено');self.local_status.setWordWrap(True);self.local_status.setMaximumWidth(850);local_bar.addWidget(self.local_status)
         self.table=SearchTable(0,15)
-        self.table.setHorizontalHeaderLabels(['Предмет','Город','Продажа в','Закупка','Продажа','Прибыль\n(≤: граница)','ROI, %','Прибыль с F','ROI с F, %','Объём продаж\nза 7 дней','Дата','Состояние расчёта','Надёжность','Материалы','Артефакт'])
+        self.table.setHorizontalHeaderLabels(['Предмет','Город','Продажа в','Закупка','Продажа','Прибыль\n(≤: граница)','ROI, %','Прибыль с F','ROI с F, %','Объём продаж\nшт./день','Дата','Состояние расчёта','Надёжность','Материалы','Артефакт'])
         self.material_delegate=MaterialDelegate(self.icons,self.table)
         for column in (13,14):self.table.setItemDelegateForColumn(column,self.material_delegate)
         header=self.table.horizontalHeader();header.moveSection(header.visualIndex(13),header.visualIndex(3));header.moveSection(header.visualIndex(14),header.visualIndex(13)+1)
@@ -725,7 +725,7 @@ class Window(QMainWindow):
                 data=breakdown(row,artifacts);cell=NumericItem('');cell.setData(MATERIAL_ROLE,data);cell.setToolTip(tip(data));cell.setBackground(QColor(COLORS[row['color']]))
                 cell.setData(Qt.UserRole,float(data['total']) if data['complete'] else None);self.table.setItem(n,column,cell)
                 material_height=max(material_height,30+25*len(data['parts']))
-            self.table.setRowHeight(n,max(material_height,80 if label.count('\n')>1 else 66 if '\n' in label else 60,76 if d['per_day']>=1000 else 60))
+            self.table.setRowHeight(n,max(material_height,80 if label.count('\n')>1 else 66 if '\n' in label else 60,92 if d['per_day']>=1000 else 76))
             yield
         for c,width in enumerate([210,95,95,105,95,120,85,140,110,245,160,180,160]):self.table.setColumnWidth(c,width)
         self.table.setColumnWidth(9,165);self.table.setColumnWidth(14,105)

@@ -1,5 +1,6 @@
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal as D
+import math
 
 def calculate(raw, fixed, sale, rrr, station, setup, tax, focus=None):
     values=(raw,fixed,sale,rrr,station,setup,tax)
@@ -33,7 +34,7 @@ DEMAND_LABELS={
     'huge':'Огромный объём'}
 DEMAND_BANDS=((3,'very_low'),(10,'low'),(50,'medium'),(200,'high'),
               (1000,'very_high'),(10000,'mass'))
-DEMAND_SCALE=('Средний объём за 7 завершённых дней, единиц в сутки:\n'
+DEMAND_SCALE=('Объём продаж, единиц в сутки:\n'
     'Очень мало: больше 0, но меньше 3; мало: 3–<10; умеренно: 10–<50;\n'
     'много: 50–<200; очень много: 200–<1 000; массовые продажи: 1 000–<10 000;\n'
     'огромный объём: от 10 000. Пороги одинаковы для всех типов предметов.\n'
@@ -42,18 +43,23 @@ DEMAND_SCALE=('Средний объём за 7 завершённых дней,
 
 def demand_text(info):
     if info['kind']=='unknown':return 'Нет истории'
-    volume=f'{info["per_day"]:,.1f}'.replace(',', ' ').replace('.', ',')
+    precision=2 if 0<info['per_day']<.1 else 1
+    volume=f'{info["per_day"]:,.{precision}f}'.replace(',', ' ').replace('.', ',')
     unit=f'({volume} шт./день)'
     if info['per_day']>=1000:
         hourly=f'{info["per_day"]/24:,.1f}'.replace(',', ' ')
         unit+=f'\n≈ {hourly} ед./час'
+    unit+='\n'+{1:'24 ч.',7:'7 дней',28:'4 недели'}.get(info.get('period_days',7),'7 дней')
     return DEMAND_LABELS[info['kind']]+'\n'+unit
 
 
 def demand_tip(info):
     text=DEMAND_SCALE+'\n\nИстория относится к городу, зачарованию и качеству этой строки.\n'
-    text+=f'Дней с полученными данными: {info["observed_days"]}/7; с продажами: {info["active_days"]}/7.\n'
-    text+='Пропуски не считаются подтверждёнными нулями; неполная история может занижать объём.\n'
+    period=info.get('period_days',7)
+    text+=f'Период: {period} дн.; получено интервалов: {info.get("observed_buckets",info["observed_days"])}/{info.get("expected_buckets",7)}.\n'
+    text+=f'Полнота: {info.get("coverage",info["observed_days"]/7)*100:.0f}%.\n'
+    text+='Пропуски не считаются подтверждёнными нулями; при неполной истории объём в день — нижняя оценка.\n'
+    text+='Сутки: короткий актуальный срез; неделя: сглаживает отдельные дни; 4 недели: устойчивее к скачкам, но медленнее отражает изменения. Полнота истории не гарантирует будущие продажи.\n'
     if info['per_day']>0:
         text+=f'30 единиц / весь объём рынка ≈ {30/info["per_day"]:.1f} суток. Это ориентир масштаба партии, а не срок продажи вашего заказа: есть конкуренты.\n'
     return text+'Среднее в час = объём в сутки / 24, а не измеренный темп каждого часа.'
@@ -61,9 +67,12 @@ def demand_tip(info):
 
 def demand(data, now=None):
     now=now or datetime.now(timezone.utc)
-    # Seven complete UTC days; the current incomplete day is excluded.
-    end=now.replace(hour=0,minute=0,second=0,microsecond=0)
-    start=end-timedelta(days=7)
+    history=data if isinstance(data,dict) else {}
+    period=history.get('period_days',7);bucket=history.get('bucket_hours',6 if history.get('source','').startswith('Из твоей игры') else 24)
+    if period not in (1,7,28) or bucket not in (1,6,24):period,bucket=7,24
+    data=history.get('data',[]) if history else data
+    end=now.replace(hour=now.hour//bucket*bucket,minute=0,second=0,microsecond=0)
+    start=end-timedelta(days=period)
     days={}; total=0; weighted=0
     seen=set()
     for row in data:
@@ -71,14 +80,15 @@ def demand(data, now=None):
             dt=datetime.fromisoformat(row['timestamp'].replace('Z','+00:00'))
             dt=dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
             count=row['item_count']; price=row['avg_price']
-            if not isinstance(count,int) or isinstance(count,bool) or count<0 or not isinstance(price,(int,float)) or price<0:
+            if not isinstance(count,int) or isinstance(count,bool) or count<0 or not isinstance(price,(int,float)) or isinstance(price,bool) or not math.isfinite(price) or price<0:
                 continue
-            if not start<=dt<end or dt in seen: continue
+            if not start<=dt or dt+timedelta(hours=bucket)>end or dt in seen: continue
             seen.add(dt); days[dt.date()]=days.get(dt.date(),0)+count
             total+=count; weighted+=count*price
         except (KeyError,ValueError,TypeError,AttributeError): continue
     active=sum(v>0 for v in days.values())
-    per_day=total/7
+    per_day=total/period
     kind='unknown' if not days else 'none' if total==0 else next((kind for upper,kind in DEMAND_BANDS if per_day<upper),'huge')
-    return dict(kind=kind,total=total,per_day=total/7,active_days=active,observed_days=len(days),
-                average=weighted/total if total else None)
+    return dict(kind=kind,total=total,per_day=per_day,active_days=active,observed_days=len(days),
+                average=weighted/total if total else None,period_days=period,bucket_hours=bucket,
+                observed_buckets=len(seen),expected_buckets=period*24//bucket,coverage=len(seen)/(period*24//bucket),source=history.get('source','API'))

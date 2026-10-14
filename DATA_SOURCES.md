@@ -88,3 +88,6 @@ Brecilien: рынок clusterid 5003, бонусы из clusterid 5000. В со�
 Стоимость полной закупки ресурсов показывается независимо от наличия тарифа. Если известна лишь часть ресурсов, сумму нельзя выдавать за полную себестоимость. Строки без полного набора цен по умолчанию скрывает «Только с ценами»; счётчик показывает сколько скрыто, галочка позволяет вернуть их с точными причинами. «Все города» сравнивает независимые операции в каждом городе.
 
 Проверки: 47 тестов; автоматический расчёт палаша на живых ценах без ручного профиля, сохранение границ неизвестных расходов, фильтр цен и отображение подробностей. Статические справочники бонусов нужно обновлять при изменениях игры.
+
+
+History-period identifiers follow the bundled and upstream [AODP client](https://github.com/ao-data/albiondata-client/blob/master/lib/marketHistory.go): 0 is 24 hours, 1 is seven days, 2 is four weeks. Captured buckets are hourly, six-hour and daily respectively. [API history](https://www.albion-online-data.com/api/) remains a seven-day daily aggregate in this application. The selected local period takes precedence for demand calculation; no price-gap reference is asserted to be normal market value.

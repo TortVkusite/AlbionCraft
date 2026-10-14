@@ -67,7 +67,7 @@ def evaluate(build,prices,histories,city,tier,enchantment,quality,recipes,settin
     if context is None:context={}
     if not context:
         context.update(index={(p.get('item_id'),p.get('city'),p.get('quality')):p for p in prices},
-            hist={(h.get('item_id'),h.get('location'),h.get('quality')):h.get('data',[]) for h in histories},parts={},recipes={})
+            hist={(h.get('item_id'),h.get('location'),h.get('quality')):h for h in histories},parts={},recipes={})
         for recipe in recipes:context['recipes'].setdefault(recipe.item_id,[]).append(recipe)
     index=context['index'];hist=context['hist']
     parts=[];total=0;missing=[]

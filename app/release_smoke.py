@@ -101,7 +101,7 @@ def check(output):
             result['fame_subprocess']='ok'
             from app.background import ProcessWorker
             from decimal import Decimal as D
-            from datetime import datetime,timezone
+            from datetime import datetime,timezone,timedelta
             recipe=next(r for r in recipes if r.item_id=='T2_METALBAR')
             stamp=datetime.now(timezone.utc).isoformat()
             prices=[dict(item_id=uid,city=city,quality=1,sell_price_min=value,sell_price_min_date=stamp)
@@ -126,6 +126,21 @@ def check(output):
                 budget=1000,weight=1000,focus=100,repeat=True,objective='profit'))
             assert plans['plans'][0]['lines'] and plans['plans'][0]['profit']>0
             result['background_scan_trip_recommendations']='ok'
+            from app.local_market import decode_history
+            clock=datetime.now(timezone.utc)
+            for scale,days,bucket in ((0,1,1),(1,7,6),(2,28,24)):
+                end=clock.replace(hour=clock.hour//bucket*bucket,minute=0,second=0,microsecond=0)
+                points=[dict(Timestamp=int(((end-timedelta(hours=bucket*n))-datetime(1,1,1,tzinfo=timezone.utc)).total_seconds())*10000000,ItemAmount=100,SilverAmount=100*40000*10000) for n in range(1,days*24//bucket+1)]
+                raw=dict(AlbionId=42,LocationId='0007',QualityLevel=1,Timescale=scale,MarketHistories=points)
+                h=decode_history(raw,{42:'T4_MAIN_SWORD'},clock)
+                from app.calculator import demand
+                assert demand(h,clock)['per_day']==100*24/bucket
+            gap_prices=[dict(item_id='T4_MAIN_SWORD',city='Thetford',quality=1,local_observations=dict(sell_price_min_date=clock.isoformat(),sell_price_min_levels=[dict(price=40000,quantity=100),dict(price=60000,quantity=40)]))]
+            gap_results=calculate('recommendations',dict(rows=[],settings=dict(auto_rules=False,setup='2.5',tax='8',other='0'),prices=gap_prices,histories=[]))
+            assert gap_results['gaps'][0]['profit']==D('1369910.5')
+            from app.price_gap_dialog import GapDetails
+            detail=GapDetails(window,gap_results['gaps'][0]);detail.show();app.processEvents();detail.accept()
+            result['history_periods_and_price_gaps']='ok'
             from app.island import farming_data
             plant=next(p for p in farming_data()['products'] if p['id']=='T1_FARM_CARROT_SEED')
             farm_prices=[dict(item_id=uid,city='Thetford',quality=1,sell_price_min=value,buy_price_max=value,

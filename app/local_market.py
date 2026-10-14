@@ -21,23 +21,27 @@ def item_indexes():
     names=json.loads((Path(__file__).resolve().parents[1]/'research/names.json').read_text(encoding='utf-8-sig'))
     return {int(n['Index']):n['UniqueName'] for n in names if str(n.get('Index','')).isdigit()}
 
-def decode_history(payload,indexes=None):
+def decode_history(payload,indexes=None,now=None):
     if not isinstance(payload,dict):raise ValueError('Неверная история')
-    if payload.get('Timescale')!=1:return None
+    scale=payload.get('Timescale')
+    if type(scale) is not int or scale not in (0,1,2):return None
+    period,bucket=((1,1),(7,6),(28,24))[scale]
     uid=(indexes if indexes is not None else item_indexes()).get(payload.get('AlbionId'))
     city=LOCATIONS.get(str(payload.get('LocationId')));quality=payload.get('QualityLevel')
     if not uid or not city or type(quality) is not int or quality not in range(1,6):raise ValueError('Неизвестный предмет / город / качество')
     points=payload.get('MarketHistories')
     if not isinstance(points,list) or len(points)>1000:raise ValueError('Неверные точки истории')
-    now=datetime.now(timezone.utc);end=now.replace(hour=0,minute=0,second=0,microsecond=0);rows={}
+    now=now or datetime.now(timezone.utc)
+    end=now.replace(hour=now.hour//bucket*bucket,minute=0,second=0,microsecond=0);rows={}
     for p in points:
         if not isinstance(p,dict) or any(type(p.get(k)) is not int for k in ('Timestamp','ItemAmount','SilverAmount')):continue
         if p['ItemAmount']<0 or p['SilverAmount']<0:continue
         try:dt=datetime(1,1,1,tzinfo=timezone.utc)+timedelta(microseconds=p['Timestamp']//10)
         except (ValueError,OverflowError):continue
-        if not end-timedelta(days=7)<=dt<end:continue
-        rows[dt.isoformat()]=dict(timestamp=dt.isoformat(),item_count=p['ItemAmount'],avg_price=p['SilverAmount']/10000/p['ItemAmount'] if p['ItemAmount'] else 0)
-    return dict(item_id=uid,location=city,quality=quality,data=list(rows.values()),source='Из твоей игры: история за 7 дней',observed=now.isoformat())
+        if not end-timedelta(days=period)<=dt or dt+timedelta(hours=bucket)>end:continue
+        rows[dt.isoformat()]=dict(timestamp=dt.isoformat(),item_count=p['ItemAmount'],avg_price=p['SilverAmount']/10000/p['ItemAmount'] if p['ItemAmount'] else 0,bucket_hours=bucket)
+    return dict(item_id=uid,location=city,quality=quality,data=list(rows.values()),period_days=period,bucket_hours=bucket,
+        source='Из твоей игры: история '+{1:'24 ч.',7:'7 дней',28:'4 недели'}[period],observed=now.isoformat())
 
 def decode_orders(payload):
     if not isinstance(payload,dict) or not isinstance(payload.get('Orders'),list):raise ValueError('Ожидается Orders')
@@ -59,6 +63,7 @@ class LocalStore:
         self.db=sqlite3.connect(path,timeout=10)
         self.db.execute('CREATE TABLE IF NOT EXISTS local_quotes (item TEXT,city TEXT,quality INTEGER,side TEXT,payload TEXT,PRIMARY KEY(item,city,quality,side))')
         self.db.execute('CREATE TABLE IF NOT EXISTS local_histories (item TEXT,city TEXT,quality INTEGER,payload TEXT,PRIMARY KEY(item,city,quality))')
+        self.db.execute('CREATE TABLE IF NOT EXISTS local_history_windows (item TEXT,city TEXT,quality INTEGER,period INTEGER,payload TEXT,PRIMARY KEY(item,city,quality,period))')
         self.db.commit()
     def save(self,orders):
         from .market_memory import initialize,archive_prices
@@ -96,10 +101,16 @@ class LocalStore:
     def save_history(self,history):
         from .market_memory import archive_volumes
         archive_volumes(self.db,[history],'Local')
-        self.db.execute('INSERT OR REPLACE INTO local_histories VALUES(?,?,?,?)',(history['item_id'],history['location'],history['quality'],json.dumps(history)));self.db.commit()
+        self.db.execute('INSERT OR REPLACE INTO local_history_windows VALUES(?,?,?,?,?)',(history['item_id'],history['location'],history['quality'],history.get('period_days',7),json.dumps(history)));self.db.commit()
     def histories(self,ids):
         ids=set(ids);cutoff=datetime.now(timezone.utc)-timedelta(days=1)
-        return [p for uid,payload in self.db.execute('SELECT item,payload FROM local_histories') if uid in ids and (p:=json.loads(payload))['data'] and datetime.fromisoformat(p['observed'])>=cutoff]
+        result={}
+        for uid,payload in self.db.execute('SELECT item,payload FROM local_histories UNION ALL SELECT item,payload FROM local_history_windows'):
+            if uid not in ids:continue
+            p=json.loads(payload);stamp=datetime.fromisoformat(p['observed']);key=(uid,p['location'],p['quality'])
+            if not p['data'] or not cutoff<=stamp<=datetime.now(timezone.utc):continue
+            if key not in result or stamp>=datetime.fromisoformat(result[key]['observed']):result[key]=p
+        return list(result.values())
 
 def merge_local(primary,local):
     result={(r['item_id'],r['city'],r['quality']):dict(r) for r in primary}

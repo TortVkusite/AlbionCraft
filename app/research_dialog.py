@@ -34,7 +34,7 @@ class ResearchDialog(QDialog):
         from .history_chart import HistoryChart
         self.chart=HistoryChart();layout.addWidget(self.chart)
         self.table=QTableWidget(0,4);self.table.setHorizontalHeaderLabels(['Дата','Продажа / покупка','Цена','Источник']);readable_table(self.table);layout.addWidget(self.table,1)
-        self.volume=QTableWidget(0,3);self.volume.setHorizontalHeaderLabels(['Дата','Продано на рынке','Цена сделок']);readable_table(self.volume);layout.addWidget(self.volume,1)
+        self.volume=QTableWidget(0,3);self.volume.setHorizontalHeaderLabels(['Дата','Продано за интервал','Цена сделок']);readable_table(self.volume);layout.addWidget(self.volume,1)
         self.insight=QLabel();self.insight.setWordWrap(True);layout.addWidget(self.insight)
         self.item.currentIndexChanged.connect(self.refresh);self.city.currentIndexChanged.connect(self.refresh);self.quality.currentIndexChanged.connect(self.refresh)
         page=QWidget();layout=QVBoxLayout(page);tabs.addTab(page,'Бонусы производства')
@@ -107,7 +107,8 @@ class ResearchDialog(QDialog):
         for n,p in enumerate(prices):
             for c,v in enumerate([local_time(p['stamp']),'Продажа' if p['side']=='sell_price_min' else 'Покупка',money(p['price']),p['source']]):self.table.setItem(n,c,QTableWidgetItem(v))
         for n,p in enumerate(volumes):
-            for c,v in enumerate([local_time(p['stamp']),str(p['count']),money(p['price'])]):self.volume.setItem(n,c,QTableWidgetItem(v))
+            for c,v in enumerate([local_time(p['stamp']),str(p['count']),money(p['price'])]):
+                cell=QTableWidgetItem(v);cell.setToolTip(f'Интервал: {p.get("bucket_hours",24)} ч.; период: {p.get("period_days",7)} дн.');self.volume.setItem(n,c,cell)
         sell=[p for p in prices if p['side']=='sell_price_min']
         text='Для решения «продать или подержать» пока мало наблюдений.'
         if len(sell)>=5 and (datetime.fromisoformat(sell[0]['stamp'])-datetime.fromisoformat(sell[-1]['stamp'])).days>=7:

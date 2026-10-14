@@ -12,7 +12,7 @@ def age_minutes(stamp):
     except (ValueError,TypeError,AttributeError):return None
 
 
-def build_recommendations(rows,settings):
+def build_recommendations(rows,settings,prices=(),histories=()):
     prefs=settings.get('recommendations',{});limit=int(prefs.get('stale_hours',6))*60
     low=Decimal(str(prefs.get('roi_min',5)));high=Decimal(str(prefs.get('roi_max',200)))
     items={};candidates={}
@@ -41,4 +41,5 @@ def build_recommendations(rows,settings):
     missing.sort(key=lambda p:(p['state']=='Нет цены',p['role']=='Компонент',p['recipes'],p['age'] or 0),reverse=True)
     known.sort(key=lambda p:(not p['source'].startswith('Из твоей игры'),p['age'] if p['age'] is not None else float('inf')))
     candidates=sorted(candidates.values(),key=lambda c:c['result']['profit'],reverse=True)
-    return dict(update=missing,known=known,candidates=candidates,price_count=len(items),with_price=len(known))
+    from .price_gaps import find_gaps
+    return dict(update=missing,known=known,candidates=candidates,price_count=len(items),with_price=len(known),gaps=find_gaps(prices,histories,settings))

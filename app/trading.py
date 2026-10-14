@@ -45,7 +45,7 @@ def trading_scan(recipes,prices,histories,buy_cities,sell_cities,settings,qualit
         return rows
     settings=effective_settings(settings)
     index={(p.get('item_id'),p.get('city'),p.get('quality')):p for p in prices if isinstance(p,dict)}
-    hist={(h.get('item_id'),h.get('location'),h.get('quality')):h.get('data',[]) for h in histories if isinstance(h,dict)}
+    hist={(h.get('item_id'),h.get('location'),h.get('quality')):h for h in histories if isinstance(h,dict)}
     unique={r.item_id:r for r in recipes};result=[]
     setup=number(settings.get('setup'),True);tax=number(settings.get('tax'),True);other=number(settings.get('other'))
     pending=['прочие расходы'] if other is None and settings.get('auto_rules') else []
@@ -75,7 +75,7 @@ def trading_scan(recipes,prices,histories,buy_cities,sell_cities,settings,qualit
                 if activity=='flip':issues.append('Ориентир buy/sell orders: объём и срок исполнения не известны; два размещения')
                 if activity=='resale':issues.append('Расходы транспорта включены только в указанные прочие расходы')
                 d=demand(hist.get((r.item_id,sell_city,quality),[]))
-                if d['kind']=='unknown':issues.append('Нет истории за 7 дней')
+                if d['kind']=='unknown':issues.append('Нет истории продаж')
                 part=dict(ingredient=Ingredient(r.item_id,1,False),price=bv,age=ba,status=bs,date=bp.get(buy_side+'_date'),source=bp.get(buy_side+'_source',settings.get('region_label','Europe')+' API'),side=buy_side,nats=bp.get('nats_observations'),local=bp.get('local_observations'))
                 if part['source'].startswith('Из твоей игры') or sp.get(sell_side+'_source','').startswith('Из твоей игры'):issues.append('Получено из твоей игры: только просмотренные ордера; исполнение и полнота рынка не гарантированы')
                 if part['source'].startswith('AODP NATS') or sp.get(sell_side+'_source','').startswith('AODP NATS'):issues.append('Наблюдавшиеся ордера NATS; полнота рынка не гарантирована')

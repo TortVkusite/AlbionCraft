@@ -103,8 +103,7 @@ class Details(QDialog):
             value.setText(f'Прибыль / Focus: {x:.2f}; дополнительная прибыль от Focus / Focus: '+(f'{extra:.2f}' if extra is not None else '—'))
         focus.valueChanged.connect(update);update()
         if activity!='craft':focus.hide();value.hide();form.labelForField(focus).hide()
-        d=row['demand'];info=QLabel(f'История: {d["total"]} ед. за 7 завершённых дней UTC; {d["per_day"]:.1f}/сутки; '
-            f'{d["active_days"]} дней с продажами; {d["observed_days"]}/7 дней наблюдений.\n'+
+        d=row['demand'];info=QLabel(f'История: {d["total"]} ед. за {d.get("period_days",7)} дн.; {d["per_day"]:.1f}/сутки.\n'+
             demand_tip(d)+'\n'+
             'Sell order — ориентир предложения. Возврат оценивается для повторного использования.\n'
             'Даты без timezone предварительно считаются UTC. Бонусы: авто-правила либо ручной профиль.\n'+

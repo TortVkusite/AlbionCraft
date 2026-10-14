@@ -115,3 +115,24 @@ A diagnostic JSON contains app/Qt versions, database health and record counts fr
 known tables. It excludes player names, tokens, orders, raw logs and local paths.
 It is saved locally and is not uploaded. AlbionCraft has no user-to-user data
 sharing or new hosted analytics service.
+
+
+## Daily volume and discounted batches (0.5.2)
+
+The local client accepts all game history views: 24 hours, seven days and four
+weeks. Their snapshots are retained separately; calculations use the latest
+viewed local snapshot. Reopen a four-week view discarded by an older version.
+Volume is always expressed in units/day. The tooltip shows the period and bucket
+coverage, not a calibrated probability. Short windows react faster; long windows
+smooth individual days. Missing intervals are not confirmed zeros, and volume
+over an incomplete full window is a lower estimate. Unfinished buckets are excluded.
+Archive records preserve interval length so overlapping views are not summed.
+
+**Recommendations → Discounted batches** uses the observed offer levels on a
+page. Defaults are a minimum 10% adjacent price gap and a maximum observation age
+of 15 minutes. Its cash limit includes purchasing the entire cheap prefix, listing
+and other costs. Resale is a scenario at one silver below the next seen price,
+with sales tax and listing fees deducted. Double-click for all observed levels,
+formulas, trade-history price and an assumed 10% market-share selling time. The
+next price is an offer, not demonstrated demand or a guaranteed fair value;
+other pages, vanished orders and new competitors may change the result.

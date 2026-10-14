@@ -112,7 +112,7 @@ def task(kind, data):
         return solve_groups(data['groups'],data['budget'])
     if kind == 'recommendations':
         from .recommendations import build_recommendations
-        return build_recommendations(data['rows'],data['settings'])
+        return build_recommendations(data['rows'],data['settings'],data.get('prices',[]),data.get('histories',[]))
     raise ValueError('Unknown calculation')
 
 
