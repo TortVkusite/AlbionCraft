@@ -8,7 +8,7 @@ from app.version import __version__
 
 root=Path(__file__).resolve().parents[1]
 out=root/'release';out.mkdir(exist_ok=True)
-top={'README.md','USER_GUIDE.md','DATA_SOURCES.md','CHANGES.md','LICENSE',
+top={'README.md','README_RU.md','USER_GUIDE.md','DATA_SOURCES.md','CHANGES.md','LICENSE',
      'THIRD_PARTY_NOTICES.md','PRIVACY.md','CONTRIBUTING.md','.gitignore','.gitattributes',
      'requirements.txt','requirements-build.txt','Start.cmd','Start.ps1',
      'Setup.cmd','AlbionCraft.spec'}

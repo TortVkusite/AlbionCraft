@@ -4,7 +4,7 @@ An independent Windows desktop companion for **Albion Online Europe, Americas an
 Available in **English and Russian**. Plan refining trips, compare crafting/trading
 opportunities, track orders and character progression, and price personal loadouts.
 
-[Download the Windows ZIP](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.5.2/AlbionCraft-0.5.2-windows-x64.zip), extract the whole folder and run
+[Download the Windows ZIP](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.7.0/AlbionCraft-0.7.0-windows-x64.zip), extract the whole folder and run
 `AlbionCraft.exe`. Python is not required. Use **Language / Язык → English** in the menu.
 Your language is saved; new installations follow the system language. Existing
 Russian profiles keep Russian until you change it. Item names use the game's
@@ -60,7 +60,7 @@ local and covers only complete visible cells in the selected area.
 Help includes opt-in tray/autoconnect/Windows startup, local market history,
 reviewed production bonuses with expiry reminders, and backup/restore/diagnostics.
 Bonus screenshots use local OCR and require confirmation; there is no invented
-calendar or calibrated sale-time probability. No user-to-user sharing is enabled.
+calendar. Conditional sale forecasts are available; personal accuracy is not calibrated. Private peer sharing is available through explicit invitation. See PEER_EXCHANGE.md.
 
 The Windows build stores data in `%LOCALAPPDATA%\AlbionCraft`; source installations
 store data beside the source. Do not publish settings, databases or unredacted logs.

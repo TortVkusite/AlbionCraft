@@ -1,114 +1,117 @@
-<p align="center"><img src="docs/banner.svg" alt="AlbionCraft — ходки, прибыль и рынок Albion Online" width="100%"></p>
+<p align="center"><img src="docs/banner.svg" alt="AlbionCraft — market decisions, explained" width="100%"></p>
 
-<p align="center"><b>Помощник для рынка, переработки и прогресса в Albion Online</b><br>Windows x64 · Europe / Americas / Asia · Русский / English · Beta</p>
+<p align="center"><b>A desktop decision workspace for the Albion Online economy.</b><br>Windows x64 · Europe / Americas / Asia · English / Русский</p>
 
 <p align="center">
-<a href="https://github.com/TortVkusite/AlbionCraft/releases/tag/v0.5.2"><img src="https://img.shields.io/badge/release-0.5.2%20beta-blue" alt="0.5.2 beta"></a>
-<a href="https://github.com/TortVkusite/AlbionCraft/actions/workflows/test.yml"><img src="https://github.com/TortVkusite/AlbionCraft/actions/workflows/test.yml/badge.svg" alt="Tests"></a>
-<a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT"></a>
+<a href="https://github.com/TortVkusite/AlbionCraft/releases/tag/v0.7.0"><img src="https://img.shields.io/badge/release-0.7.0_beta-65d6bb" alt="0.7.0 Beta"></a>
+<a href="https://github.com/TortVkusite/AlbionCraft/actions/workflows/test.yml"><img src="https://github.com/TortVkusite/AlbionCraft/actions/workflows/test.yml/badge.svg" alt="Windows tests"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
 </p>
 
-AlbionCraft помогает выбрать выгодные предметы и спланировать ходку: что купить,
-сколько привезти, что переработать и где продать. Сравнивай прибыль в серебре
-или ROI, учитывай фокус, тариф станции, уже купленные партии и запасы на базе.
+AlbionCraft turns market observations into inspectable decisions: **what to buy,
+how much to carry, what to refine, and how long a batch might take to sell**.
+Results keep their assumptions, source and limitations visible.
 
-**Начать:** [скачай Windows-сборку](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.5.2/AlbionCraft-0.5.2-windows-x64.zip), распакуй её целиком и
-запусти `AlbionCraft.exe`. Python устанавливать не нужно.
-[Все релизы](https://github.com/TortVkusite/AlbionCraft/releases) ·
-[Первые шаги](docs/QUICK_START.md) · [Подробная инструкция](USER_GUIDE.md) ·
-[Сборка из исходников](docs/BUILDING.md) · [English overview](docs/README_EN.md)
+**[Download Windows x64](https://github.com/TortVkusite/AlbionCraft/releases/download/v0.7.0/AlbionCraft-0.7.0-windows-x64.zip)** ·
+[Русское описание](README_RU.md) · [Quick start](docs/QUICK_START_EN.md) ·
+[User guide](USER_GUIDE.md) · [Architecture](docs/ARCHITECTURE.md) ·
+[Forecast methodology](docs/SALE_FORECAST.md)
 
-| Возможность | Что получаешь |
+Extract the **entire ZIP**, then launch `AlbionCraft.exe`. Python is bundled.
+Choose your server and language; existing profiles are preserved on update.
+This is a beta release; the Windows executable is unsigned.
+
+## A decision, beyond a price difference
+
+| Question | Workspace |
 |---|---|
-| Рынок | Крафт, переработка, зачарование и перепродажа с фильтрами по городам, тирам, чарам и качеству |
-| Калькулятор ходки | Подбор партии под вес, бюджет и фокус; промежуточные материалы и повторная переработка возвратов |
-| Запасы и покупки | Ресурсы на базе и партии для перевозки; чтение видимых ячеек банка |
-| Объёмы и сроки | Ценовые ступени полученных ордеров, продажи в день и сценарий срока реализации |
-| План и факт | Сохранённые ходки, фактические расходы, выручка и сверка с планом |
-| Мои заказы | Покупки и продажи, остатки, срок действия, фильтры и сортировка |
-| Билды | Рыночная проверка билдов и дешёвые варианты личного комплекта под заданный IP |
-| Прогресс | Древо персонажа, опыт, распределение свободной славы и журнал |
-| Остров | Посадки, травы и выращивание животных; затраты первого цикла, возврат семян и распределение фокуса |
-| Персонализация | Сохранение фильтров, исключения, рекомендации и сценарии ходок |
-| История и бонусы | Локальная динамика цен и объёмов, подтверждение бонусов со скриншота, срок действия и напоминания |
-| Фоновая работа | Трей, ожидание запуска Albion и подключение клиента по выбору пользователя |
-| Резервная копия | Приватный ZIP профилей, восстановление и обезличенный отчёт диагностики |
+| What fits one profitable trip? | Integer optimization under weight, cash, Focus and production limits; intermediate materials and repeated resource returns |
+| How long might my batch take to sell? | Conditional completion probabilities, median time, 10–90% intervals, expected remaining units and market-share sensitivity |
+| Are cheap offers a useful opportunity? | Observed price steps, quantities, fees and an inspectable resale scenario |
+| Can friends pool their observations? | Encrypted private peer groups, durable forwarding and deduplication |
+| How do I use what I already own? | Stock at destination, purchased cargo, reservations and plan-versus-actual reconciliation |
+| What else can I plan? | Item-power loadouts, progression, fame-credit allocation, island layouts and payback |
 
-В 0.5.2 бюджет ходки учитывает все расходы и резерв серебра, сохранённые планы
-резервируют запасы. Добавлены стресс-сценарии, проверка по фактическим результатам,
-схема острова, окупаемость построек и питомник. Бонусы требуют проверки после OCR;
-сроки продаж остаются сценариями. [Как пользоваться](USER_GUIDE.md).
+## Sale forecasts you can inspect
 
-<p align="center"><img src="docs/screenshots/trip.png" alt="Калькулятор ходки на демонстрационных ценах" width="100%"><br><sub>Пример расчёта на демонстрационных ценах; это не текущие котировки.</sub></p>
+<p align="center"><img src="docs/screenshots/forecast-en.png" alt="Batch sale forecast with completion curve, uncertainty interval and sensitivity" width="100%"><br><sub>Actual application UI with synthetic demonstration history. These are not live prices or measured player outcomes.</sub></p>
 
-Разделы открываются слева в одном окне. Настройки прокручиваются отдельно от результатов;
-переключение между рынком, ходкой и островом сохраняет введённые значения.
-В таблице крафта материалы показаны как иконка, количество × цена и сумма до возвратов;
-артефакты вынесены отдельно. Дополнительные столбцы включаются над таблицей.
+Open **Help → Batch sale forecast**, or use the forecast button in an item detail.
+Set a batch size, your assumed market share and the time until your next check.
+A Gamma–Poisson model produces a completion curve and a range of outcomes.
+Bursty history widens uncertainty; sparse or stale data suppresses the estimate.
 
-## Язык интерфейса
+**The probability is conditional on the assumptions.** Market volume does not
+identify your personal sales rate, queue priority or future competitors. Personal
+accuracy is not yet calibrated. See the [equations, data gates and validation](docs/SALE_FORECAST.md).
 
-В меню **Language / Язык** выбери русский или английский. Выбор сохраняется.
-Переведены окна, подсказки, расчёты, заказы и дерево развития; названия предметов
-берутся из локализации игры. Поиск принимает названия на обоих языках.
-Для новой установки язык выбирается по системе; прежние профили сохраняют русский.
-[English quick start](docs/QUICK_START_EN.md).
+## One trip, with the full cost of the operation
 
-## Как устроены данные
+<p align="center"><img src="docs/screenshots/trip-en.png" alt="Haul optimizer using demonstration prices" width="100%"><br><sub>Demonstration prices; this is not a current trading recommendation.</sub></p>
 
-Сервер выбирается в главном окне: **Europe / Americas / Asia**. Цены, заказы,
-запасы и прогресс хранятся отдельно; старый профиль Europe остаётся на месте.
-Доступен Brecilien. Для межгородского сравнения он включается отдельной галочкой:
-доступ и расходы перевозки учитывай в своём сценарии.
+Compare absolute silver profit and ROI, account for fees and reserves, and choose
+whether to buy intermediate materials or produce them. Stock and repeated returns
+participate in the same plan. Saved plans retain their original inputs and can be
+reconciled against actuals.
 
-Большие расчёты выполняются в фоне, таблицы заполняются порциями. В дереве броня
-разделена по материалу и части экипировки; карточка предмета загружается при выборе.
-Сортировка и подбор используют весь выбранный набор, включая строки вне текущей страницы.
+## Engineering highlights
 
-Публичные цены и история приходят из [Albion Online Data Project](https://www.albion-online-data.com/).
-Необязательный локальный клиент дополняет их наблюдениями из игры: открой нужные
-страницы рынка. Для него нужен Npcap, устанавливаемый отдельно. Собственные заказы
-учитываются по полученным страницам и подтверждённым событиям сервера. Банк читается
-локально с выбранной области экрана; неоднозначные результаты требуют проверки.
+- **Domain models separated from Qt.** Optimization, probability distributions,
+  normalization and fees are testable without opening a window.
+- **Responsive desktop execution.** Heavy jobs run in bounded child processes;
+  capture updates are coalesced and large tables render in batches.
+- **Evidence-aware storage.** SQLite preserves timestamps and sources.
+  Overlapping history windows are selected, never added together.
+- **Durable private sync.** Iroh QUIC/TLS, group authentication, signed records,
+  inventory-first transfer, commit-before-ACK and offline forwarding.
+- **Reproducible verification.** Domain tests, synthetic numerical validation,
+  a three-process peer sandbox and frozen Windows smoke tests.
 
-**Неизвестно — значит данных не хватает.** Котировки могут быть старыми,
-увиденные страницы не охватывают весь рынок. Расчётная прибыль и сроки продажи
-зависят от этих данных и твоих настроек. Надпись «≤» означает, что часть расходов
-ещё не учтена. Прибыль не гарантирована; формулы описаны в [DATA_SOURCES.md](DATA_SOURCES.md).
+Read the [architecture](docs/ARCHITECTURE.md), [peer protocol](docs/PEER_EXCHANGE.md)
+and [build instructions](docs/BUILDING.md).
 
-Приложение не нажимает кнопки в игре и не выставляет заказы. Локальный клиент
-читает сетевые сообщения; AlbionCraft не запрашивает пароль аккаунта.
+## Data and privacy
 
-## Настройки и приватность
+Public observations come from the [Albion Online Data Project](https://www.albion-online-data.com/).
+Optional local capture supplements them with pages viewed in-game; Npcap is
+installed separately. Bank OCR runs locally. Game interaction is passive and
+trades remain under the player's control.
 
-Windows-сборка хранит профиль в `%LOCALAPPDATA%\AlbionCraft`.
-Обновление файлов программы сохраняет профиль. Из исходников данные хранятся
-рядом с кодом; существующие установки продолжают использовать свои файлы.
-Фильтры, профиль, заказы, запасы и локальные наблюдения не включены в релиз.
+Peer sharing is opt-in. Bank contents, character profiles, personal orders,
+screenshots and capture credentials remain outside its protocol. Direct peers
+can see network addresses; public Iroh services may establish connections or
+forward encrypted traffic. Free relays have limits and no uptime guarantee.
 
-Не публикуй `settings.json`, SQLite-базы и полные журналы: они могут содержать
-имя персонажа, заказы и токен подключения. Подробнее: [PRIVACY.md](PRIVACY.md).
+Profiles live in `%LOCALAPPDATA%\AlbionCraft`, separately for each game server.
+Read [privacy details](PRIVACY.md) and [data semantics](DATA_SOURCES.md).
 
-## Для разработчиков
+## Run from source
+
+Windows x64 and Python 3.14 are the verified development environment.
 
 ```powershell
 py -3.14 -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 .venv\Scripts\python.exe -m app.main
-.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Также можно запустить `Setup.cmd`, затем `Start.cmd`.
-Проверенная платформа — Windows x64 / Python 3.14. Другие платформы пока не проверены.
-Проверки: [CONTRIBUTING.md](CONTRIBUTING.md), [BUILDING.md](docs/BUILDING.md).
-Нашёл ошибку — создай Issue с шагами воспроизведения и обезличенным примером.
+```powershell
+.venv\Scripts\python.exe -m unittest discover -s tests -v
+.venv\Scripts\python.exe scripts/forecast_validation.py
+.venv\Scripts\python.exe scripts/peer_sandbox.py
+```
 
-## Лицензия и благодарности
+The peer sandbox uses temporary profiles on loopback. Numerical simulation checks
+the stated model, not real-world predictive accuracy. Demo data is synthetic.
 
-Код AlbionCraft и собственное оформление опубликованы под [MIT](LICENSE).
-Она разрешает использовать, изменять и распространять код с сохранением
-уведомления об авторстве и лицензии. Сторонние библиотеки и игровые материалы имеют
-свои условия: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+## Contribute
 
-Спасибо Albion Online Data Project и авторам открытых библиотек.
-AlbionCraft — независимый проект сообщества, не официальный продукт Sandbox Interactive.
+Use [Issues](https://github.com/TortVkusite/AlbionCraft/issues) for reproducible bugs
+and focused proposals. Include the version, steps and a sanitized example. Keep
+profiles, databases, tokens and full logs out of reports. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License and attribution
+
+Application code and original presentation assets use [MIT](LICENSE). Game assets
+and dependencies retain their licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
+AlbionCraft is an independent community project, unaffiliated with Sandbox Interactive.

@@ -91,3 +91,23 @@ Brecilien: рынок clusterid 5003, бонусы из clusterid 5000. В со�
 
 
 History-period identifiers follow the bundled and upstream [AODP client](https://github.com/ao-data/albiondata-client/blob/master/lib/marketHistory.go): 0 is 24 hours, 1 is seven days, 2 is four weeks. Captured buckets are hourly, six-hour and daily respectively. [API history](https://www.albion-online-data.com/api/) remains a seven-day daily aggregate in this application. The selected local period takes precedence for demand calculation; no price-gap reference is asserted to be normal market value.
+# Необязательный обмен с друзьями
+
+Закрытая группа Iroh P2P передаёт только нормализованные рыночные страницы и
+агрегированную историю из локального захвата. Исходные время, автор и ID сохраняются
+при пересылке. Полученные данные хранятся в отдельной `peer-sync.sqlite` и имеют
+источник P2P; собственный захват ими не заменяется. Состав данных, ограничения и
+проверки описаны в `docs/PEER_EXCHANGE.md`, порядок включения — в `USER_GUIDE.md`.
+Публичные службы Iroh используются только для установления/ретрансляции
+зашифрованных соединений, а не как хранилище рыночной базы AlbionCraft.
+
+
+## Условный прогноз срока продажи (0.7)
+
+Используется одно окно истории сделок, отдельно для предмета, города и качества.
+Пропуски не считаются нулями. Темп оценивается по наблюдавшейся длительности;
+при покрытии ниже 75%, менее трёх интервалов / 18 часов либо устаревшей истории
+проценты недоступны. Доля рынка задаётся пользователем. Gamma–Poisson модель
+расширяет неопределённость при скачках объёма; вероятности, сроки и ожидаемый
+остаток происходят из одного распределения. Личная точность не откалибрована.
+Формулы, границы применимости и воспроизводимые проверки: [SALE_FORECAST.md](docs/SALE_FORECAST.md).

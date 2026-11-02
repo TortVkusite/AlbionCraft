@@ -1,3 +1,18 @@
+# 0.7.0 Beta — sale forecasts and private market sharing
+
+- New conditional batch sale forecast: completion probability, median time,
+  10–90% intervals, expected remaining units and market-share sensitivity.
+- History windows, coverage/freshness gates, explicit source metadata and
+  Gamma–Poisson dispersion handling; personal accuracy is not calibrated.
+- Forecasts run in isolated processes; entry points in Help, item details,
+  discounted batches and trip sell-order rows. Russian and English UI.
+- Includes the previously local-only 0.6 private Iroh peer exchange, signed
+  durable mailboxes, inventory-first sync and three-process sandbox.
+- Portfolio documentation: English landing README, Russian overview,
+  architecture diagrams, equations, reproducible validation and demo screenshots.
+- Capture receiver drains bounded HTTP bodies before region-error responses,
+  avoiding Windows connection resets instead of readable 409/422 errors.
+
 # Продажи в день и дешёвые партии — 0.5.2, 14.10.2026
 
 - Исправлен приём истории рынка: доступны режимы 24 часа, 7 дней и 4 недели. Снимки сохраняются раздельно; для расчёта используется последний просмотренный режим.
@@ -264,3 +279,13 @@
 - Исправлено преобразование прямых HTTP-цен клиента: UnitPriceSilver передаётся в фиксированных единицах, 10000 единиц равны одному серебру. Пример из реального рынка: 49820000 → 4982.
 - Старые локальные записи без маркера единиц читаются с правильным масштабом; новые помечаются как серебро и не делятся повторно. REST и NATS этим изменением не преобразуются.
 - 78 тестов и HTTP/Qt-проверка пройдены; добавлена проверка цены со скриншота и чтения до/после сохранения и повторного открытия базы.
+# 0.6.0 — закрытый P2P-обмен
+
+- Отдельная группа друзей по приглашению, Iroh QUIC/TLS, автоматическое повторное
+  соединение и возможность получать данные без публикации собственного захвата.
+- Рыночная очередь на диске с исходными автором, временем, подписью и ID;
+  пересылка через посредника, сверка перед загрузкой, ACK после сохранения.
+- Отдельная база P2P, источники цен в расчётах, разделение игровых серверов,
+  ограничения размеров, времени хранения и числа участников.
+- Встроенная песочница из трёх отдельных процессов на одном ПК.
+- Банк, профиль, личные заказы, скриншоты и клиентские токены не передаются.

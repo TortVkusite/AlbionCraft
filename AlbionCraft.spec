@@ -11,13 +11,15 @@ data += [(str(root/name), '.') for name in ('LICENSE','THIRD_PARTY_NOTICES.md','
 data += collect_data_files('rapidocr')
 rapid_data, rapid_binaries, rapid_imports = collect_all('rapidocr')
 data += rapid_data
+peer_data, peer_binaries, peer_imports = collect_all('iroh')
+data += peer_data
 client = root/'build/albioncraft-data-client.exe'
 if not client.is_file():
     raise RuntimeError('Build the local capture client first; see docs/BUILDING.md')
 data += [(str(client), 'tools/albion-data-client'),
          (str(root/'tools/albion-data-client/AODP-LICENSE.txt'), 'tools/albion-data-client')]
-a = Analysis([str(root/'app/entry.py')], pathex=[str(root)], binaries=rapid_binaries,
-             datas=data, hiddenimports=rapid_imports+['PySide6.QtSvg','onnxruntime'],
+a = Analysis([str(root/'app/entry.py')], pathex=[str(root)], binaries=rapid_binaries+peer_binaries,
+             datas=data, hiddenimports=rapid_imports+peer_imports+['PySide6.QtSvg','onnxruntime'],
              hookspath=[], hooksconfig={}, runtime_hooks=[],
              excludes=['PySide6.QtWebEngineCore','PySide6.QtWebEngineWidgets','PySide6.QtQml','PySide6.QtQuick','tkinter','matplotlib','IPython'], noarchive=False)
 # Qt on Windows uses the OS ICU API. A developer machine may expose another ICU

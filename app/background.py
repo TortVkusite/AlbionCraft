@@ -72,6 +72,9 @@ class ProcessWorker(QThread):
 def task(kind, data):
     from .i18n import set_language
     set_language(data['language'])
+    if kind == 'sale_forecast':
+        from .sale_forecast import task as forecast_task
+        return forecast_task(data)
     if kind == 'scan':
         from .scan_result import calculate_view
         return calculate_view(data)

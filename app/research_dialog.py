@@ -81,7 +81,7 @@ class ResearchDialog(QDialog):
             snap=entry['snapshot'];values=[snap['buy']+' → '+snap['craft'],money(snap['profit']),money(summary['profit']),money(summary['delta']),str(entry['facts'].get('hours_to_sell') or 'Неизвестно')]
             for c,v in enumerate(values):self.actuals.setItem(n,c,QTableWidgetItem(v))
         labels={'sale':'Выручка','purchase':'Закупка','stock':'Запасы','station':'Станция','other':'Прочие','sale_fees':'Комиссии'}
-        cal=calibration(entries);self.calibration_info.setText('Закрытых ходок: '+str(cal['count'])+'. Для каждого маршрута поправка появится после 10 сверок. Последовательная проверка использует только более ранние результаты. Причины отклонений: '+ '; '.join(labels[k]+': '+money(v) for k,v in cal['changes'].items())+'. Вероятности будущих продаж пока не оцениваются.')
+        cal=calibration(entries);self.calibration_info.setText('Закрытых ходок: '+str(cal['count'])+'. Для каждого маршрута поправка появится после 10 сверок. Последовательная проверка использует только более ранние результаты. Причины отклонений: '+ '; '.join(labels[k]+': '+money(v) for k,v in cal['changes'].items())+'. Персональная точность вероятностного прогноза пока не откалибрована.')
     def save_options(self,*args):
         self.owner.settings.update(use_bonuses=self.use.isChecked(),bonus_reminders=self.remind.isChecked());self.owner.persist_view();self.owner.render()
     def save_bonus(self):

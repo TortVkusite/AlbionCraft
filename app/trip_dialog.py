@@ -134,6 +134,7 @@ class TripDialog(QDialog):
         self.relists=NoWheelInt();self.relists.setRange(0,20);self.relists.setValue(prefs.get('relists',1));check_bar.addWidget(QLabel('Перевыставить остаток, раз:'));check_bar.addWidget(self.relists)
         warning=QLabel('Ордеры — только увиденная страница из твоей игры, а не весь рынок; объём мог измениться. NATS и обычная котировка не подтверждают доступное количество. При заказе на продажу срок = количество / (продажи рынка в день × твоя доля). Это сценарий, не гарантия. Ограничение срока без истории запрещает продажу результата; быстрая продажа ограничивается увиденными заказами на покупку.');warning.setWordWrap(True);market_layout.addWidget(warning)
         self.market_results=self.table(['Результат','Продать','Рынок: шт. / день','Срок при моей доле','Быстрее / медленнее','Остаток к проверке','Плата перевыставлений','Ограничение']);market_layout.addWidget(self.market_results,1)
+        forecast_hint=QLabel('Двойной клик по строке заказа на продажу открывает вероятностный прогноз партии.');forecast_hint.setWordWrap(True);market_layout.addWidget(forecast_hint)
         self.market_dialog.finished.connect(self.preferences)
         self.market_warnings=QLabel();self.market_warnings.setWordWrap(True);market_layout.addWidget(self.market_warnings)
         close=QPushButton('Закрыть');close.clicked.connect(self.market_dialog.accept);market_layout.addWidget(close)
@@ -292,6 +293,10 @@ class TripDialog(QDialog):
                 if uid not in rows:rows[uid]=[c,0]
                 rows[uid][1]+=line.get('sold',line['quantity'])
         self.market_results.setRowCount(len(rows))
+        self.forecast_rows=list(rows.values())
+        try:self.market_results.cellDoubleClicked.disconnect(self.open_sale_forecast)
+        except (RuntimeError,TypeError):pass
+        self.market_results.cellDoubleClicked.connect(self.open_sale_forecast)
         for n,(c,qty) in enumerate(rows.values()):
             forecast=turnover(qty,c.row.get('demand',{}),self.share.value())
             from .market_memory import sale_scenario
@@ -307,6 +312,11 @@ class TripDialog(QDialog):
         warnings=[f"{labels[kind]}: {item_name(uid,False)} • {city}" for kind,uid,city in getattr(self,'depth_warnings',[]) if city in (self.buy.currentText(),self.craft.currentText())]
         self.market_warnings.setText(('\n'.join(warnings[:5])+ (f'\nЕщё {len(warnings)-5} — полный список в подсказке.' if len(warnings)>5 else '') or 'Нет предупреждений о количестве. Увиденные ордера могут быть частью рынка.')+'\nБыстрее / медленнее: моя скорость продаж ×2 / ÷2. Сценарии, без вероятностей. Остаток предполагает сохранение текущей доли рынка; новые конкуренты могут увеличить ожидание.'+'\nПеревыставления: весь остаток к проверке × текущая цена × плата размещения × число раз. Это отдельный сценарий расходов; запиши фактическую сумму в сверку.')
         self.market_warnings.setToolTip('\n'.join(warnings));self.market_dialog.exec()
+    def open_sale_forecast(self,row,column=0):
+        if not 0<=row<len(getattr(self,'forecast_rows',[])):return
+        candidate,quantity=self.forecast_rows[row]
+        if candidate.row.get('sale_mode')=='instant':return
+        self.owner.open_sale_forecast(candidate.recipe.item_id,candidate.row['sell'],1,max(1,int(quantity)),self.share.value())
     def open_ledger(self):
         from .trip_ledger import plan_snapshot
         from .trip_ledger_dialog import TripLedgerDialog

@@ -5,6 +5,15 @@ from pathlib import Path
 
 
 def main():
+    if len(sys.argv)==3 and sys.argv[1]=='--peer-node':
+        import asyncio
+        from app.peer_sandbox import node_main
+        asyncio.run(node_main(Path(sys.argv[2])))
+        return 0
+    if len(sys.argv)==3 and sys.argv[1]=='--peer-sandbox':
+        from app.peer_sandbox import run
+        run(Path(sys.argv[2]))
+        return 0
     if len(sys.argv) == 4 and sys.argv[1] == '--task-worker':
         from app.background import child
         return child(sys.argv[2], sys.argv[3])

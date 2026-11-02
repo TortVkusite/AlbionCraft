@@ -20,6 +20,9 @@ class Details(QDialog):
             from .crafter_dialog import CrafterDialog
             CrafterDialog(parent,getattr(parent,'root',None) or data_root(),parent.recipes,row).exec()
         batch.clicked.connect(open_batch)
+        forecast=QPushButton('Прогноз продажи партии');layout.addWidget(forecast)
+        forecast.clicked.connect(lambda:parent.open_sale_forecast(r.item_id,row['sell'],quality))
+        forecast.setEnabled(row.get('sale_side')!='buy_price_max')
         heading=QLabel(f'{item_name(r.item_id)} • {QUALITY_NAMES[quality-1]}\n{r.path}, рецепт #{r.variant+1}: {recipe_variant(r)}\n'
             f'Покупка: {row["buy"]} → '+('зачарование' if row.get('activity')=='enchant' else 'крафт')+f': {row["craft"]} → продажа: {row["sell"]}')
         heading.setWordWrap(True);heading.setToolTip(r.item_id);layout.addWidget(heading)

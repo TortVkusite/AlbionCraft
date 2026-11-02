@@ -141,6 +141,18 @@ def check(output):
             from app.price_gap_dialog import GapDetails
             detail=GapDetails(window,gap_results['gaps'][0]);detail.show();app.processEvents();detail.accept()
             result['history_periods_and_price_gaps']='ok'
+            from app.sale_forecast_dialog import SaleForecastDialog
+            day=clock.replace(hour=0,minute=0,second=0,microsecond=0)
+            forecast_history=dict(item_id='T4_MAIN_SWORD',location='Thetford',quality=1,period_days=7,bucket_hours=24,
+                observed=clock.isoformat(),source='Synthetic smoke fixture',data=[dict(timestamp=(day-timedelta(days=n)).isoformat(),item_count=100,avg_price=1200) for n in range(1,8)])
+            forecast_result=calculate('sale_forecast',dict(root=folder,item='T4_MAIN_SWORD',city='Thetford',quality=1,period=7,
+                quantity=10,share=10,hours=24,histories=[forecast_history]))
+            assert forecast_result['status']=='ready' and .4<forecast_result['selected']['probability']<.7
+            forecast_dialog=SaleForecastDialog(window,'T4_MAIN_SWORD','Thetford',1,10,10)
+            forecast_dialog.timer.stop();forecast_dialog.pending=False;forecast_dialog.show_result(forecast_result)
+            forecast_dialog.show();app.processEvents();assert forecast_dialog.table.rowCount()==8
+            assert forecast_dialog.grab().save(str(output.with_name('forecast-smoke.png')))
+            forecast_dialog.accept();result['conditional_sale_forecast']='ok'
             from app.island import farming_data
             plant=next(p for p in farming_data()['products'] if p['id']=='T1_FARM_CARROT_SEED')
             farm_prices=[dict(item_id=uid,city='Thetford',quality=1,sell_price_min=value,buy_price_max=value,

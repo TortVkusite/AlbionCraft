@@ -20,6 +20,14 @@ def snapshot(data):
             prices=merge_local(prices,store.prices())
             for h in store.histories(data['history_ids']):histories[(h['item_id'],h['location'],h['quality'])]=h
         finally:store.close()
+    if data.get('peers'):
+        from .peer_market import shared_market,merge_shared
+        shared,history=shared_market(path.with_name('peer-sync.sqlite'),data['region'])
+        prices=merge_shared(prices,shared)
+        from .peer_store import stamp
+        for h in history:
+            key=(h['item_id'],h['location'],h['quality']);old=histories.get(key)
+            if old is None or stamp(h['observed'])>stamp(old.get('observed','1970-01-01T00:00:00+00:00')):histories[key]=h
     return dict(prices=prices,histories=list(histories.values()),context=data['context'])
 
 

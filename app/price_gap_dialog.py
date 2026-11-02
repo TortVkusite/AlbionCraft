@@ -11,6 +11,10 @@ class GapDetails(QDialog):
     def __init__(self,parent,row):
         super().__init__(parent);self.setWindowTitle('Дешёвая партия — '+item_name(row['item_id']));self.resize(920,690)
         body=QVBoxLayout(self)
+        forecast=QPushButton('Прогноз продажи партии');body.addWidget(forecast)
+        target=getattr(parent,'owner',parent)
+        forecast.clicked.connect(lambda:target.open_sale_forecast(row['item_id'],row['city'],row['quality'],row['quantity']))
+        forecast.setEnabled(hasattr(target,'open_sale_forecast'))
         def text(value):
             label=QLabel(value);label.setWordWrap(True);label.setTextInteractionFlags(Qt.TextSelectableByMouse);body.addWidget(label);return label
         text(item_name(row['item_id'])+' • '+row['city']+' • '+f'Качество: {row["quality"]}'+'\n'+'Увидено UTC: '+timestamp(row['stamp']))

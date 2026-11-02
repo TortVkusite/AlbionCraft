@@ -99,6 +99,8 @@ class Window(QMainWindow):
         folder=help_menu.addAction(tr('Папка моих данных'));folder.triggered.connect(self.open_data_folder)
         research=help_menu.addAction(tr('История рынка и бонусы'));research.triggered.connect(self.open_research)
         profile=help_menu.addAction(tr('Резервная копия и диагностика'));profile.triggered.connect(self.open_data_tools)
+        peer_action=help_menu.addAction(tr('Обмен данными с друзьями'));peer_action.triggered.connect(self.open_peer_exchange)
+        forecast_action=help_menu.addAction(tr('Прогноз продажи партии'));forecast_action.triggered.connect(lambda:self.open_sale_forecast())
         language_menu=self.menuBar().addMenu('Language / Язык')
         language_group=QActionGroup(self);language_group.setExclusive(True);self.language_actions={}
         for code,label in LANGUAGES.items():
@@ -250,7 +252,21 @@ class Window(QMainWindow):
             else:control.textChanged.connect(self.queue_view_save)
         self.restoring_view=False
         self.build_dashboard(layout,heading_bar,operation,cities,rule_bar,filters,actions,local_bar)
+        from .peer_dialog import PeerController
+        self.peer_exchange=PeerController(self)
         fit_window(self)
+    def open_peer_exchange(self):
+        self.peer_exchange.open()
+    def open_sale_forecast(self,item=None,city=None,quality=1,quantity=30,share=10):
+        from .sale_forecast_dialog import SaleForecastDialog
+        current=getattr(self,'forecast_dialog',None)
+        if current and current.isVisible():
+            if item:current.item.setCurrentIndex(current.item.findData(item))
+            if city:current.city.setCurrentText(city)
+            current.quality.setCurrentIndex(quality-1);current.quantity.setValue(max(1,quantity));current.share.setValue(share)
+            current.show();current.raise_();return
+        dialog=SaleForecastDialog(self,item,city,quality,quantity,share)
+        self.forecast_dialog=dialog;dialog.exec()
     def build_dashboard(self,old,heading,operation,cities,rules,filters,actions,local):
         self.setStyleSheet(STYLE)
         market=QWidget();market_body=QVBoxLayout(market);market_body.setContentsMargins(4,0,4,0)
@@ -506,10 +522,11 @@ class Window(QMainWindow):
         recipes=self.filtered()
         self.live_refresh.request(dict(path=str(self.root/'prices.sqlite'),prices=primary,histories=api_history,
             ids=self.required_ids(recipes),history_ids={r.item_id for r in recipes},
-            live=self.live.isChecked(),local=hasattr(self,'local_enabled') and self.local_enabled.isChecked(),context=self.live_context()))
+            live=self.live.isChecked(),local=hasattr(self,'local_enabled') and self.local_enabled.isChecked(),
+            peers=hasattr(self,'peer_exchange') and self.peer_exchange.enabled(),region=self.region,context=self.live_context()))
         self.stream_dirty=False
     def live_context(self):
-        return (self.market_version,self.live.isChecked(),hasattr(self,'local_enabled') and self.local_enabled.isChecked())
+        return (self.market_version,self.live.isChecked(),hasattr(self,'local_enabled') and self.local_enabled.isChecked(),hasattr(self,'peer_exchange') and self.peer_exchange.enabled())
     def live_received(self,data):
         if self.closing or self.last is None or data['context']!=self.live_context():return
         if data['prices']!=self.last['prices'] or data['histories']!=self.last['histories']:
@@ -736,6 +753,8 @@ class Window(QMainWindow):
         if extra:source+=f' + NATS: {extra} предметов/городов/качеств'
         local_quotes=sum(bool(p.get('local_observations')) for p in self.last['prices'])
         if local_quotes:source+=f' + Из твоей игры: {local_quotes} предметов/городов/качеств'
+        peer_quotes=sum(bool(p.get('peer_observations')) for p in self.last['prices'])
+        if peer_quotes:source+=f' + P2P: {peer_quotes} предметов/городов/качеств'
         self.status.setText(f'{len(recipes)} предметов/рецептов • {len(self.last["prices"])} котировок • {source}. '+self.last['warning'])
         calculated=sum(r['base'] is not None for r in rows)
         partial=sum(bool(r.get('pending_costs')) and r['base'] is not None for r in rows)
@@ -803,9 +822,13 @@ class Window(QMainWindow):
         self.closing=True;self.render_timer.stop();self.table_batch.cancel()
         if first:
             if desktop:desktop.shutdown()
+            if peers:=getattr(self,'peer_exchange',None):
+                peers.stop()
+                if peers.test_worker:peers.test_worker.requestInterruption()
+                if peers.dialog:peers.dialog.close()
             self.live_refresh.stop()
             self.centralWidget().setEnabled(False);self.menuBar().setEnabled(False)
-            for name in ('builds_dialog','recommendation_dialog','orders_page','profile_page','preferences_page'):
+            for name in ('builds_dialog','recommendation_dialog','orders_page','profile_page','preferences_page','forecast_dialog'):
                 if dialog:=getattr(self,name,None):dialog.close()
         for timer_name in ('load_timer','stream_timer','view_timer','capture_timer'):
             if timer:=getattr(self,timer_name,None):timer.stop()
@@ -815,9 +838,13 @@ class Window(QMainWindow):
         if first:
             if trip:trip.close()
             if island:island.close()
-        workers=[self.worker,self.render_worker,self.live_refresh.worker,self.local_receiver,self.stream,getattr(tracker,'worker',None),getattr(tracker,'calculation_worker',None),getattr(recommendations,'calculation_worker',None),getattr(trip,'worker',None),getattr(island,'worker',None),getattr(island,'calculation',None)]
+        workers=[self.worker,self.render_worker,self.live_refresh.worker,self.local_receiver,self.stream,getattr(tracker,'worker',None),getattr(tracker,'calculation_worker',None),getattr(recommendations,'calculation_worker',None),getattr(trip,'worker',None),getattr(island,'worker',None),getattr(island,'calculation',None),getattr(getattr(self,'peer_exchange',None),'worker',None)]
         for worker in workers:
             if worker and worker.isRunning():worker.requestInterruption()
+        if forecast_dialog:=getattr(self,'forecast_dialog',None):
+            if forecast_dialog.worker:workers.append(forecast_dialog.worker)
+        if peers:=getattr(self,'peer_exchange',None):
+            if peers.test_worker:workers.append(peers.test_worker)
         if any(worker and worker.isRunning() for worker in workers):
             self.status.setText('Завершаю фоновые задачи…');event.ignore();QTimer.singleShot(100,self.close);return
         self.persist_view()

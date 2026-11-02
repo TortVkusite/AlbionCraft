@@ -140,6 +140,12 @@ def make_server(path,token,on_update,port=PORT,region=None,on_status=lambda text
                 else:self.send_error(404)
                 self.close_connection=True;return
             try:
+                size=int(self.headers.get('Content-Length','0'))
+                if not 0<size<=2_000_000:self.send_error(413);return
+                # Consume a bounded request before returning an HTTP error. On
+                # Windows, closing with unread bytes can turn 409/422 into RST.
+                body=self.rfile.read(size)
+                if len(body)!=size:self.send_error(400);return
                 if expected is not None:
                     try:actual=region_key(self.headers.get('X-Albion-Server',''))
                     except ValueError:
@@ -148,9 +154,7 @@ def make_server(path,token,on_update,port=PORT,region=None,on_status=lambda text
                     if actual!=expected:
                         on_status('Из игры: выбери сервер '+REGIONS[actual]['label']+'; данные другого сервера не сохранены.')
                         self.send_error(409,'Wrong Albion server');self.close_connection=True;return
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=2_000_000:self.send_error(413);return
-                payload=json.loads(self.rfile.read(size))
+                payload=json.loads(body)
                 if own_request:
                     from .own_orders import OwnOrderStore
                     own=OwnOrderStore(Path(path).with_name('player.sqlite'))

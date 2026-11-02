@@ -12,6 +12,7 @@ MIT в корне относится к исходному коду и собс�
 | SciPy / NumPy | [SciPy](https://github.com/scipy/scipy), [NumPy](https://github.com/numpy/numpy), BSD и уведомления встроенных библиотек |
 | RapidOCR / ONNX Runtime | [RapidOCR](https://github.com/RapidAI/RapidOCR), [ONNX Runtime](https://github.com/microsoft/onnxruntime), Apache-2.0 / MIT и уведомления моделей |
 | PyInstaller | [Лицензия с исключением для собранных приложений](https://pyinstaller.org/en/stable/license.html) |
+| Iroh / Python FFI | [n0-computer/iroh-ffi](https://github.com/n0-computer/iroh-ffi), Apache-2.0 / MIT; тексты обеих лицензий входят в Windows-сборку |
 | Локальный клиент захвата | Модификация [Albion Data Client](https://github.com/ao-data/albiondata-client), MIT; исходники в `vendor/albion-data-client`, исходная лицензия сохранена |
 | Рецепты, названия, прогрессия | [ao-bin-dumps](https://github.com/ao-data/ao-bin-dumps); игровые данные Albion Online, права соответствующих правообладателей |
 | Цены и история | [Albion Online Data Project](https://www.albion-online-data.com/) |

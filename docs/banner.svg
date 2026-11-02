@@ -1,13 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="400" viewBox="0 0 1280 400">
-  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#121d29"/><stop offset="1" stop-color="#243c46"/></linearGradient></defs>
-  <rect width="1280" height="400" rx="24" fill="url(#bg)"/>
-  <g opacity=".08" stroke="#93ccba"><path d="M760 0v400M880 0v400M1000 0v400M1120 0v400M680 80h600M680 160h600M680 240h600M680 320h600"/></g>
-  <path d="m786 287 92-54 70 19 96-99 68 22 80-96" fill="none" stroke="#68d0b2" stroke-width="5"/>
-  <g fill="#e8bd68"><circle cx="878" cy="233" r="7"/><circle cx="1044" cy="153" r="7"/><circle cx="1192" cy="79" r="7"/></g>
-  <text x="64" y="87" fill="#68d0b2" font-family="Segoe UI" font-size="16" letter-spacing="4">ALBION ONLINE · EUROPE · WINDOWS</text>
-  <text x="58" y="177" fill="#f4ecd9" font-family="Segoe UI" font-size="76" font-weight="700">AlbionCraft</text>
-  <text x="64" y="236" fill="#b9cbd2" font-family="Segoe UI" font-size="26">Планируй ходку. Считай прибыль. Следи за рынком.</text>
-  <rect x="64" y="294" width="151" height="38" rx="19" fill="#344853"/>
-  <text x="91" y="319" fill="#e8bd68" font-family="Segoe UI" font-size="16">OPEN SOURCE</text>
-  <text x="236" y="319" fill="#afc6cc" font-family="Segoe UI" font-size="16">Крафт · Переработка · Билды · Прогресс</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360">
+ <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#10171e"/><stop offset="1" stop-color="#203945"/></linearGradient></defs>
+ <rect width="1280" height="360" rx="20" fill="url(#bg)"/>
+ <g opacity=".12" stroke="#8fa8b9"><path d="M760 40v260M860 40v260M960 40v260M1060 40v260M1160 40v260M720 80h500M720 140h500M720 200h500M720 260h500"/></g>
+ <path d="M735 270 C810 270 825 255 865 214 S935 126 995 92 S1110 56 1220 52" fill="none" stroke="#65d6bb" stroke-width="5"/>
+ <path d="M735 290 C870 285 880 253 940 207 S1090 105 1220 89" fill="none" stroke="#65d6bb" stroke-opacity=".2" stroke-width="30"/>
+ <text x="60" y="65" fill="#65d6bb" font-family="Segoe UI,Arial,sans-serif" font-size="14" letter-spacing="3">MARKET DECISIONS, EXPLAINED</text>
+ <text x="55" y="157" fill="#edf4fa" font-family="Segoe UI,Arial,sans-serif" font-size="76" font-weight="700">AlbionCraft</text>
+ <text x="60" y="204" fill="#afc6cc" font-family="Segoe UI,Arial,sans-serif" font-size="23">Plan the trip. Understand the trade.</text>
+ <text x="60" y="236" fill="#afc6cc" font-family="Segoe UI,Arial,sans-serif" font-size="23">See the uncertainty.</text>
+ <rect x="60" y="280" width="130" height="32" rx="16" fill="#245449"/>
+ <text x="80" y="302" fill="#bff9e9" font-family="Segoe UI,Arial,sans-serif" font-size="13">OPEN SOURCE</text>
+ <text x="214" y="302" fill="#8fa8b9" font-family="Segoe UI,Arial,sans-serif" font-size="14">WINDOWS · THREE GAME SERVERS · RU / EN</text>
 </svg>

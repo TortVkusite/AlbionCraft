@@ -14,7 +14,7 @@ def merge_observation(old,new):
         for key in (side,side+'_date',side+'_source',side+'_amount',side+'_levels'):
             result.pop(key,None)
             if key in new:result[key]=new[key]
-        for key in ('local_observations','nats_observations'):
+        for key in ('local_observations','nats_observations','peer_observations'):
             if key in new:result[key]=new[key]
     return result
 
@@ -50,4 +50,13 @@ def market_snapshot(owner,root,ids):
             prices={ (p['item_id'],p['city'],p['quality']):p for p in merge_local(list(prices.values()),[p for p in store.prices() if p['item_id'] in ids])}
             for h in store.histories(ids):histories[(h['item_id'],h['location'],h['quality'])]=h
         finally:store.close()
+    if getattr(getattr(owner,'peer_exchange',None),'enabled',lambda:False)():
+        from .peer_market import shared_market,merge_shared
+        shared,history=shared_market(root/'peer-sync.sqlite',owner.region)
+        prices={(p['item_id'],p['city'],p['quality']):p for p in merge_shared(list(prices.values()),[p for p in shared if p['item_id'] in ids])}
+        from .peer_store import stamp
+        for h in history:
+            if h['item_id'] not in ids:continue
+            key=(h['item_id'],h['location'],h['quality']);old=histories.get(key)
+            if old is None or stamp(h['observed'])>stamp(old.get('observed','1970-01-01T00:00:00+00:00')):histories[key]=h
     return list(prices.values()),list(histories.values())
